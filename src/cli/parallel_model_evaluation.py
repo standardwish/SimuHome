@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import concurrent.futures as cf
 import hashlib
 import json
@@ -18,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, TypedDict
 
+import click
 import requests
 import yaml
 from dotenv import load_dotenv
@@ -398,16 +398,6 @@ def _reconcile_episode_progress_in_state(
         state["created_at"] = datetime.now().isoformat(timespec="seconds")
     state["updated_at"] = datetime.now().isoformat(timespec="seconds")
     return state
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Virtual SmartHome - Spec-driven Parallel Model Evaluation"
-    )
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--spec", type=str, help="Path to evaluation spec file")
-    mode.add_argument("--resume", type=str, help="Path to existing run directory")
-    return parser.parse_args()
 
 
 def _require_mapping(value: object, path: str) -> dict[str, object]:
@@ -1216,18 +1206,21 @@ def _build_summary(
     }
 
 
-def main() -> None:
-    args = parse_args()
+def _run_cli(*, spec: str | None, resume: str | None) -> int:
     load_dotenv()
 
-    resume_mode = args.resume is not None
+    resume_mode = resume is not None
     if resume_mode:
-        run_dir = Path(args.resume).resolve()
+        if resume is None:
+            raise ValueError("resume path is required")
+        run_dir = Path(resume).resolve()
         if not run_dir.exists() or not run_dir.is_dir():
             raise FileNotFoundError(f"resume directory not found: {run_dir}")
         resolved, _ = _load_resolved_for_resume(run_dir)
     else:
-        spec_path = Path(args.spec).resolve()
+        if spec is None:
+            raise ValueError("spec path is required")
+        spec_path = Path(spec).resolve()
         raw_spec = _read_spec_file(spec_path)
         resolved = _resolve_run(raw_spec, spec_path)
         run_dir = _run_dir(resolved).resolve()
@@ -1299,7 +1292,7 @@ def main() -> None:
             _json_write(state_path, state)
             summary = _build_summary(resolved, final_results)
             _json_write(run_dir / SUMMARY_FILE, summary)
-            sys.exit(1)
+            return 1
 
         if not ready_models:
             print("[Main] No simulator reached healthy state.")
@@ -1307,7 +1300,7 @@ def main() -> None:
             _json_write(state_path, state)
             summary = _build_summary(resolved, final_results)
             _json_write(run_dir / SUMMARY_FILE, summary)
-            sys.exit(1)
+            return 1
 
         seen_safe_names: set[str] = set()
         duplicate_safe_names: set[str] = set()
@@ -1433,13 +1426,35 @@ def main() -> None:
     print(f"[Main] Completed: {success_count} succeeded, {failed_count} failed")
 
     if failed_count > 0:
-        sys.exit(1)
+        return 1
+    return 0
+
+
+@click.command(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Virtual SmartHome - Spec-driven Parallel Model Evaluation",
+)
+@click.option("--spec", default=None, help="Path to evaluation spec file")
+@click.option("--resume", default=None, help="Path to existing run directory")
+def cli(spec: str | None, resume: str | None) -> int:
+    if (spec is None) == (resume is None):
+        raise click.UsageError("Exactly one of --spec or --resume must be provided")
+    return _run_cli(spec=spec, resume=resume)
+
+
+def main(argv: list[str] | None = None) -> int:
+    result = cli.main(
+        args=argv,
+        prog_name="parallel-model-evaluation",
+        standalone_mode=False,
+    )
+    return 0 if result is None else int(result)
 
 
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)
     try:
-        main()
+        raise SystemExit(main())
     except Exception as exc:
         print(f"Error: {exc}")
         sys.exit(1)

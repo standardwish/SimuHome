@@ -20,14 +20,14 @@ ROOT = Path(__file__).resolve().parents[2]
 BENCHMARK_DIR = ROOT / "data" / "benchmark"
 PARITY_EPISODES = (
     "qt1_feasible_seed_4.json",
-    "qt2_feasible_seed_4.json",
+    "qt2_feasible_seed_1.json",
     "qt3_feasible_seed_4.json",
     "qt4-1_feasible_seed_14.json",
     "qt4-2_feasible_seed_14.json",
-    "qt4-3_feasible_seed_14.json",
+    "qt4-3_feasible_seed_16.json",
 )
 SELECTIVE_PARITY_EPISODES = (
-    "qt2_feasible_seed_4.json",
+    "qt2_feasible_seed_1.json",
     "qt4-1_feasible_seed_14.json",
 )
 MAX_TARGET_TICK = 8000
@@ -316,7 +316,3 @@ class SimParityGuardTests(unittest.TestCase):
                     _canonical_payload(ref_projection),
                     _canonical_payload(selective_projection),
                 )
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -9,6 +9,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "click>=8.3.1",
     "faiss-cpu>=1.13.0",
     "fastapi>=0.122.0",
     "langchain>=1.1.0",
@@ -29,3 +30,11 @@ simuhome = "src.cli.main:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*", "prompts*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

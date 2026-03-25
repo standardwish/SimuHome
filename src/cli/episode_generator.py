@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import os
@@ -10,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol, TypedDict, TypeVar, cast
 
+import click
 import yaml
 from dotenv import load_dotenv
 from tqdm import tqdm
@@ -1155,23 +1155,11 @@ def _build_summary(
     }
 
 
-def create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Spec-driven smart home episode generation"
-    )
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--spec", type=str, help="Path to generation spec YAML")
-    mode.add_argument("--resume", type=str, help="Path to generation run directory")
-    return parser
-
-
-def _main() -> int:
+def _run_cli(*, spec: str | None, resume: str | None) -> int:
     load_dotenv()
-    parser = create_argument_parser()
-    args = parser.parse_args()
 
-    if args.spec:
-        resolved = _resolve_generation_spec(Path(args.spec))
+    if spec is not None:
+        resolved = _resolve_generation_spec(Path(spec))
         run_dir = _run_dir(resolved)
         if run_dir.exists():
             raise FileExistsError(
@@ -1197,7 +1185,9 @@ def _main() -> int:
         )
         state = _initial_state(resolved)
     else:
-        run_dir = Path(args.resume).expanduser().resolve()
+        if resume is None:
+            raise ValueError("resume path is required")
+        run_dir = Path(resume).expanduser().resolve()
         if not run_dir.exists() or not run_dir.is_dir():
             raise FileNotFoundError(f"resume directory not found: {run_dir}")
         resolved = _load_resolved_for_resume(run_dir)
@@ -1227,19 +1217,34 @@ def _main() -> int:
         _release_run_lock(lock_path)
 
 
-def main() -> None:
+@click.command(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Spec-driven smart home episode generation",
+)
+@click.option("--spec", default=None, help="Path to generation spec YAML")
+@click.option("--resume", default=None, help="Path to generation run directory")
+def cli(spec: str | None, resume: str | None) -> int:
+    if (spec is None) == (resume is None):
+        raise click.UsageError("Exactly one of --spec or --resume must be provided")
+    return _run_cli(spec=spec, resume=resume)
+
+
+def main(argv: list[str] | None = None) -> int:
     try:
-        raise SystemExit(_main())
+        result = cli.main(args=argv, prog_name="episode-generator", standalone_mode=False)
+        return 0 if result is None else int(result)
     except (
         EpisodeGenerationError,
         FileNotFoundError,
+        click.ClickException,
+        click.UsageError,
         ValueError,
         OSError,
         yaml.YAMLError,
     ) as exc:
         print(f"[episode-generator] ERROR: {exc}")
-        raise SystemExit(1) from exc
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
