@@ -5,6 +5,9 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from src.dashboard.router import router as dashboard_router
 
 from .routes import get_home, router
 
@@ -32,7 +35,18 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title="Virtual Smart Home", version="1.0.0", lifespan=lifespan
     )
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://127.0.0.1:4173",
+            "http://localhost:4173",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     application.include_router(router)
+    application.include_router(dashboard_router)
     return application
 
 

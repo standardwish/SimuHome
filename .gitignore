@@ -25,3 +25,12 @@ server.out
 
 # Local git worktrees
 .worktrees/
+
+# Dashboard frontend
+src/dashboard/frontend/node_modules/
+src/dashboard/frontend/dist/
+src/dashboard/frontend/.vite/
+src/dashboard/frontend/coverage/
+src/dashboard/frontend/*.tsbuildinfo
+src/dashboard/frontend/vite.config.js
+src/dashboard/frontend/vite.config.d.ts
