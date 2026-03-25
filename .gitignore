@@ -22,3 +22,6 @@ __MACOSX/
 
 # Logs and outputs
 server.out
+
+# Local git worktrees
+.worktrees/
