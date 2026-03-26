@@ -14,6 +14,7 @@ import yaml
 from dotenv import load_dotenv
 from tqdm import tqdm
 
+from src.logging_config import configure_logging, get_logger
 from src.cli.config_resolver import resolve_secret_value
 from src.agents.providers import LLMProvider, OpenAIChatProvider
 from src.agents.types import ChatMessage
@@ -76,6 +77,9 @@ from src.pipelines.episode_generation.qt4_3.infeasible_prompt_builder import (
     build_qt4_3_infeasible_messages,
 )
 from src.pipelines.episode_generation.shared.messages import Message
+
+
+logger = get_logger(__name__)
 
 
 DEFAULT_START_HOUR = 9
@@ -983,10 +987,8 @@ def _create_progress_iterator(items: list[T], description: str) -> Iterable[T]:
 
 
 def _progress_print(message: str, use_tqdm: bool) -> None:
-    if use_tqdm:
-        tqdm.write(message)
-    else:
-        print(message)
+    _ = use_tqdm
+    logger.info(message)
 
 
 def _generate_single_episode(
@@ -1065,7 +1067,7 @@ def _run_generation(
 
     pending = _pending_seeds(resolved, state, run_dir)
     if not pending:
-        print("[generation] no pending seeds")
+        logger.info("[generation] no pending seeds")
         return
 
     use_tqdm = len(pending) >= MIN_ITEMS_FOR_PROGRESS_BAR
@@ -1224,12 +1226,14 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
 @click.option("--spec", default=None, help="Path to generation spec YAML")
 @click.option("--resume", default=None, help="Path to generation run directory")
 def cli(spec: str | None, resume: str | None) -> int:
+    configure_logging()
     if (spec is None) == (resume is None):
         raise click.UsageError("Exactly one of --spec or --resume must be provided")
     return _run_cli(spec=spec, resume=resume)
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging()
     try:
         result = cli.main(args=argv, prog_name="episode-generator", standalone_mode=False)
         return 0 if result is None else int(result)
@@ -1242,7 +1246,7 @@ def main(argv: list[str] | None = None) -> int:
         OSError,
         yaml.YAMLError,
     ) as exc:
-        print(f"[episode-generator] ERROR: {exc}")
+        logger.error("[episode-generator] ERROR: %s", exc)
         return 1
 
 

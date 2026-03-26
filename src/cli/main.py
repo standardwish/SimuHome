@@ -14,6 +14,10 @@ from urllib.request import urlopen
 import click
 
 from src.cli import artifact_audit
+from src.logging_config import configure_logging, get_logger
+
+
+logger = get_logger(__name__)
 
 
 def _repo_root() -> Path:
@@ -60,14 +64,14 @@ def _ns(**kwargs: object) -> SimpleNamespace:
 def _handle_health(args: SimpleNamespace) -> int:
     endpoint = _health_endpoint(args.host, args.port, args.endpoint)
     if _check_health(endpoint, timeout=2.0):
-        print("[health] OK")
+        logger.info("[health] OK")
         return 0
-    print("[health] FAIL")
+    logger.error("[health] FAIL")
     return 1
 
 
 def _handle_server_stop(args: SimpleNamespace) -> int:
-    print("[server] Stopping servers...")
+    logger.info("[server] Stopping servers...")
     return _run_module("src.cli.stop_servers", [], {"PORT": str(args.port)})
 
 
@@ -75,7 +79,7 @@ def _handle_server_start(args: SimpleNamespace) -> int:
     server_out = _repo_root() / "server.out"
     endpoint = _health_endpoint(args.host, args.port, args.endpoint)
     command = [sys.executable, "-m", "src.simulator.api.app"]
-    print(f"[server] Starting: {' '.join(command)} (port {args.port})")
+    logger.info("[server] Starting: %s (port %s)", " ".join(command), args.port)
     with server_out.open("w", encoding="utf-8") as out_file:
         subprocess.Popen(
             command,
@@ -87,9 +91,9 @@ def _handle_server_start(args: SimpleNamespace) -> int:
         )
     time.sleep(1)
     if _check_health(endpoint, timeout=2.0):
-        print("[server] Started")
+        logger.info("[server] Started")
         return 0
-    print(
+    logger.error(
         "[server] Failed to start. "
         f"Check logs at {server_out} and retry with: uv run simuhome server-start --port {args.port}"
     )
@@ -106,26 +110,26 @@ def _handle_server_restart(args: SimpleNamespace) -> int:
 def _handle_server_ensure(args: SimpleNamespace) -> int:
     endpoint = _health_endpoint(args.host, args.port, args.endpoint)
     if _check_health(endpoint, timeout=2.0):
-        print("[server] Already running")
+        logger.info("[server] Already running")
         return 0
     return _handle_server_start(args)
 
 
 def _handle_logs(args: SimpleNamespace) -> int:
     server_out = _repo_root() / "server.out"
-    print(f"[logs] tail -n {args.lines} {server_out.name}")
+    logger.info("[logs] tail -n %s %s", args.lines, server_out.name)
     if not server_out.exists():
         return 0
     lines = server_out.read_text(encoding="utf-8", errors="replace").splitlines()
     for line in lines[-args.lines :]:
-        print(line)
+        logger.info(line)
     return 0
 
 
 def _handle_dashboard(args: SimpleNamespace) -> int:
     endpoint = _health_endpoint(args.host, args.port, args.endpoint)
     if not _check_health(endpoint, timeout=2.0):
-        print(
+        logger.warning(
             "[dashboard] Backend is not running. "
             f"Start it with: uv run simuhome server-start --port {args.port}"
         )
@@ -138,7 +142,7 @@ def _handle_dashboard(args: SimpleNamespace) -> int:
             check=False,
         )
     except FileNotFoundError:
-        print("[dashboard] npm was not found in PATH.")
+        logger.error("[dashboard] npm was not found in PATH.")
         return 1
 
     return int(getattr(completed, "returncode", completed))
@@ -187,12 +191,12 @@ def _handle_install_local_hooks(_args: SimpleNamespace) -> int:
     src_hook = repo_root / ".githooks" / "pre-commit"
     dst_hook = hooks_dir / "pre-commit"
     if not hooks_dir.exists():
-        print("[install-local-hooks] .git/hooks not found")
+        logger.error("[install-local-hooks] .git/hooks not found")
         return 1
     shutil.copy2(src_hook, dst_hook)
     mode = dst_hook.stat().st_mode
     dst_hook.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    print("[install-local-hooks] Installed .git/hooks/pre-commit")
+    logger.info("[install-local-hooks] Installed .git/hooks/pre-commit")
     return 0
 
 
@@ -226,7 +230,7 @@ def _server_shared_options(func):
     help="SimuHome unified command-line interface",
 )
 def cli() -> None:
-    pass
+    configure_logging()
 
 
 @cli.command("health", help="Check server health")
@@ -356,6 +360,7 @@ def install_local_hooks() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging()
     result = cli.main(args=argv, prog_name="simuhome", standalone_mode=False)
     return 0 if result is None else int(result)
 

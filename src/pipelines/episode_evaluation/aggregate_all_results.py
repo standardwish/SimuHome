@@ -6,7 +6,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+from src.logging_config import configure_logging, get_logger
+
 from .aggregate_results import aggregate_results_for_dir
+
+
+logger = get_logger(__name__)
 
 
 def aggregate_all_results_for_experiment(experiment_dir: str) -> Dict[str, Any]:
@@ -24,9 +29,9 @@ def aggregate_all_results_for_experiment(experiment_dir: str) -> Dict[str, Any]:
     if not model_dirs:
         raise ValueError(f"No model directories with JSON files found in: {root}")
 
-    print(f"Found {len(model_dirs)} model directories:")
+    logger.info("Found %s model directories:", len(model_dirs))
     for model_dir in sorted(model_dirs):
-        print(f"  - {model_dir.name}")
+        logger.info("  - %s", model_dir.name)
 
     all_models_results: Dict[str, Any] = {}
     overall_stats = {
@@ -93,6 +98,7 @@ def aggregate_all_results_for_experiment(experiment_dir: str) -> Dict[str, Any]:
 
 
 def main() -> None:
+    configure_logging()
     parser = argparse.ArgumentParser(
         description="Aggregate evaluation results from all model directories in an experiment"
     )

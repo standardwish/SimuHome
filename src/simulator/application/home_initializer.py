@@ -1,7 +1,7 @@
-import logging
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
 
+from src.logging_config import get_logger
 from src.simulator.domain.home import Home
 from src.simulator.domain.result import Result, ResultBuilder, ErrorCode
 from src.simulator.application.device_factory import (
@@ -10,7 +10,7 @@ from src.simulator.application.device_factory import (
     create_device,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DeviceInRoomConfig(BaseModel):

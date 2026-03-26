@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Callable, TypedDict
 
 import click
 from src.cli.arg_utils import parse_integer_spec
+from src.logging_config import configure_logging, get_logger
 from src.agents.providers.base import (
     EmptyLLMResponseError,
     LLMRetryExhaustedError,
@@ -17,6 +18,8 @@ from src.agents.providers.base import (
 )
 from src.pipelines.episode_evaluation.runner import run_single_config
 from src.agents.providers import LLMProvider, OpenAIChatProvider
+
+logger = get_logger(__name__)
 
 
 class ProgressEvent(TypedDict, total=False):
@@ -479,15 +482,21 @@ def _cli_progress_emitter(event: ProgressEvent) -> None:
         total = int(event.get("total", 0))
         initial_completed = int(event.get("initial_completed", 0))
         pending = int(event.get("pending", 0))
-        print(
-            f"[EpisodeEvaluator] Progress: {initial_completed}/{total} completed, {pending} remaining"
+        logger.info(
+            "[EpisodeEvaluator] Progress: %s/%s completed, %s remaining",
+            initial_completed,
+            total,
+            pending,
         )
         return
 
     if kind in {"log", "error"}:
         message = event.get("message")
         if isinstance(message, str) and message.strip():
-            print(message)
+            if kind == "error":
+                logger.error(message)
+            else:
+                logger.info(message)
 
 
 @click.command(
@@ -607,6 +616,7 @@ def cli(
     skip_existing: bool,
     output_root: str,
 ) -> int:
+    configure_logging()
     args = SimpleNamespace(
         model=model,
         api_base=api_base,
@@ -662,15 +672,20 @@ def cli(
         emit=_cli_progress_emitter,
     )
 
-    print(
-        "[EpisodeEvaluator] Done: "
-        f"processed={stats['processed']} success={stats['success']} failed={stats['failed']} "
-        f"(initial_completed={stats['initial_completed']}, total={stats['total']})"
+    logger.info(
+        "[EpisodeEvaluator] Done: processed=%s success=%s failed=%s "
+        "(initial_completed=%s, total=%s)",
+        stats["processed"],
+        stats["success"],
+        stats["failed"],
+        stats["initial_completed"],
+        stats["total"],
     )
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging()
     result = cli.main(args=argv, prog_name="episode-evaluator", standalone_mode=False)
     return 0 if result is None else int(result)
 

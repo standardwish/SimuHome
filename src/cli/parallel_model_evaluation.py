@@ -23,12 +23,16 @@ import yaml
 from dotenv import load_dotenv
 from tqdm import tqdm
 
+from src.logging_config import configure_logging, get_logger
 from src.cli.arg_utils import parse_integer_spec
 from src.cli.config_resolver import (
     resolve_api_key_for_base,
     resolve_secret_value,
 )
 from src.cli.episode_evaluator import ProgressEvent, evaluate_episodes
+
+
+logger = get_logger(__name__)
 
 
 MANIFEST_FILE = "manifest.json"
@@ -233,8 +237,11 @@ class SimulatorManager:
             try:
                 self.terminate_process(process)
             except Exception as exc:
-                print(
-                    f"[SimulatorManager] WARN: failed to terminate PID {info['pid']} for {info['model']}: {exc}"
+                logger.warning(
+                    "[SimulatorManager] WARN: failed to terminate PID %s for %s: %s",
+                    info["pid"],
+                    info["model"],
+                    exc,
                 )
 
 
@@ -937,8 +944,10 @@ def _startup_models(
                     "error": result["error"],
                 }
             )
-            print(
-                f"[Main] ERROR: Simulator startup failed for {model_name} after {result['attempts']} attempt(s)"
+            logger.error(
+                "[Main] ERROR: Simulator startup failed for %s after %s attempt(s)",
+                model_name,
+                result["attempts"],
             )
 
     return ready, startup_failures
@@ -1260,7 +1269,7 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
 
     target_models = _select_models_for_execution(resolved, state, resume_mode)
     if not target_models:
-        print("[Main] Nothing to run. All models are already successful.")
+        logger.info("[Main] Nothing to run. All models are already successful.")
         return
 
     simulator_manager = SimulatorManager()
@@ -1287,7 +1296,7 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
         final_results.extend(startup_failures)
 
         if startup_failures and not resolved["orchestration"]["allow_partial_start"]:
-            print("[Main] Startup failure detected and allow_partial_start is false.")
+            logger.error("[Main] Startup failure detected and allow_partial_start is false.")
             state = _update_state(state, final_results)
             _json_write(state_path, state)
             summary = _build_summary(resolved, final_results)
@@ -1295,7 +1304,7 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
             return 1
 
         if not ready_models:
-            print("[Main] No simulator reached healthy state.")
+            logger.error("[Main] No simulator reached healthy state.")
             state = _update_state(state, final_results)
             _json_write(state_path, state)
             summary = _build_summary(resolved, final_results)
@@ -1423,7 +1432,7 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
     summary_totals = _require_mapping(summary.get("totals", {}), "summary.totals")
     success_count = _to_int(summary_totals.get("success", 0), "summary.totals.success")
     failed_count = _to_int(summary_totals.get("failed", 0), "summary.totals.failed")
-    print(f"[Main] Completed: {success_count} succeeded, {failed_count} failed")
+    logger.info("[Main] Completed: %s succeeded, %s failed", success_count, failed_count)
 
     if failed_count > 0:
         return 1
@@ -1437,12 +1446,14 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
 @click.option("--spec", default=None, help="Path to evaluation spec file")
 @click.option("--resume", default=None, help="Path to existing run directory")
 def cli(spec: str | None, resume: str | None) -> int:
+    configure_logging()
     if (spec is None) == (resume is None):
         raise click.UsageError("Exactly one of --spec or --resume must be provided")
     return _run_cli(spec=spec, resume=resume)
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging()
     result = cli.main(
         args=argv,
         prog_name="parallel-model-evaluation",
@@ -1456,5 +1467,6 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as exc:
-        print(f"Error: {exc}")
+        configure_logging()
+        logger.error("Error: %s", exc)
         sys.exit(1)

@@ -8,6 +8,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from src.logging_config import configure_logging, get_logger
+
+
+logger = get_logger(__name__)
+
 
 _INFRA_ERROR_TYPES = {
     "Judge Error",
@@ -295,6 +300,7 @@ def aggregate_results_for_dir(result_dir: str) -> Dict[str, Any]:
 
 
 def main() -> None:
+    configure_logging()
     p = argparse.ArgumentParser(
         description="Aggregate evaluation results from a directory"
     )
@@ -313,7 +319,7 @@ def main() -> None:
     with out_path.open("w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print(f"Aggregation completed: {out_path}")
+    logger.info("Aggregation completed: %s", out_path)
 
 
 if __name__ == "__main__":

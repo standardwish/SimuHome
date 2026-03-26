@@ -1,6 +1,5 @@
 """FastAPI application factory for the simulator service."""
 
-import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -8,12 +7,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.dashboard.router import router as dashboard_router
+from src.logging_config import configure_logging, get_logger
 
 from .routes import get_home, router
 
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+configure_logging()
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -58,6 +58,7 @@ def main() -> None:
 
     import uvicorn
 
+    configure_logging()
     port = int(os.getenv("SERVER_PORT", 8000))
     uvicorn.run("src.simulator.api.app:app", host="0.0.0.0", port=port, reload=False)
 

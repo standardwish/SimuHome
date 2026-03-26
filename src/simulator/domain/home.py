@@ -2,10 +2,11 @@ import time
 import math
 import queue
 import threading
-import logging
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
+
+from src.logging_config import get_logger
 from src.simulator.domain.result import Result, ResultBuilder, ErrorCode
 from src.simulator.domain.aggregators.registry import AGGREGATOR_REGISTRY
 from src.simulator.domain.aggregators.base import Aggregator
@@ -13,7 +14,7 @@ from src.simulator.domain.devices.base import Device
 import json
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Home:
