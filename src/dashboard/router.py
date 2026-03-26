@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import os
+import threading
+import time
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from src.cli import main as cli_main
 from src.simulator.api.responses import ResponseBuilder
 from src.simulator.domain.result import Result
 
@@ -35,6 +40,22 @@ class EvaluationStartRequest(BaseModel):
 
 class EvaluationResumeRequest(BaseModel):
     resume_path: str = Field(..., min_length=1)
+
+
+def _resolve_local_server_port(request: Request) -> int:
+    return request.url.port or int(os.getenv("SERVER_PORT") or os.getenv("PORT") or 8000)
+
+
+def schedule_local_server_stop(port: int) -> None:
+    def stop_server() -> None:
+        time.sleep(0.2)
+        cli_main._handle_server_stop(SimpleNamespace(port=port))
+
+    threading.Thread(
+        target=stop_server,
+        name="dashboard-local-server-stop",
+        daemon=True,
+    ).start()
 
 
 @router.get("/wiki/apis")
@@ -68,6 +89,13 @@ def get_wiki_cluster_doc(cluster_id: str):
 @router.get("/local/runtime/config")
 def get_local_runtime_config():
     return ResponseBuilder.from_result(Result.ok(get_runtime_config()))
+
+
+@router.post("/local/server/stop")
+def post_local_server_stop(request: Request):
+    port = _resolve_local_server_port(request)
+    schedule_local_server_stop(port)
+    return ResponseBuilder.from_result(Result.ok({"accepted": True, "port": port}))
 
 
 @router.get("/local/evaluations/runs")

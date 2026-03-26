@@ -122,6 +122,28 @@ def _handle_logs(args: SimpleNamespace) -> int:
     return 0
 
 
+def _handle_dashboard(args: SimpleNamespace) -> int:
+    endpoint = _health_endpoint(args.host, args.port, args.endpoint)
+    if not _check_health(endpoint, timeout=2.0):
+        print(
+            "[dashboard] Backend is not running. "
+            f"Start it with: uv run simuhome server-start --port {args.port}"
+        )
+
+    frontend_dir = _repo_root() / "src/dashboard/frontend"
+    try:
+        completed = subprocess.run(
+            ["npm", "run", "dev"],
+            cwd=frontend_dir,
+            check=False,
+        )
+    except FileNotFoundError:
+        print("[dashboard] npm was not found in PATH.")
+        return 1
+
+    return int(getattr(completed, "returncode", completed))
+
+
 def _handle_episode(args: SimpleNamespace) -> int:
     return _run_module("src.cli.episode_generator", ["--spec", args.spec])
 
@@ -241,6 +263,12 @@ def server_ensure(host: str, port: int, endpoint: str | None) -> int:
 @click.option("--lines", type=int, default=100, show_default=True)
 def logs(lines: int) -> int:
     return _handle_logs(_ns(lines=lines))
+
+
+@cli.command("dashboard", help="Start dashboard frontend dev server")
+@_server_shared_options
+def dashboard(host: str, port: int, endpoint: str | None) -> int:
+    return _handle_dashboard(_ns(host=host, port=port, endpoint=endpoint))
 
 
 @cli.command("episode", help="Start spec-driven episode generation")

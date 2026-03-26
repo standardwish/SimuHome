@@ -132,6 +132,24 @@ def test_local_evaluation_start_spawns_background_process(
     assert captured["command"][-2:] == ["--spec", "eval_spec.example.yaml"]
 
 
+def test_local_server_stop_schedules_background_shutdown(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_schedule(port: int) -> None:
+        captured["port"] = port
+
+    monkeypatch.setattr("src.dashboard.router.schedule_local_server_stop", fake_schedule)
+
+    client = TestClient(create_app(), base_url="http://127.0.0.1:8000")
+
+    response = client.post("/api/local/server/stop")
+
+    data = _unwrap_ok(response)
+    assert data["accepted"] is True
+    assert data["port"] == 8000
+    assert captured["port"] == 8000
+
+
 def test_local_evaluation_spec_preview_reads_yaml_summary(tmp_path: Path) -> None:
     spec_path = tmp_path / "eval_spec.yaml"
     spec_path.write_text(

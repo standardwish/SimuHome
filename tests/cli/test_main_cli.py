@@ -14,6 +14,7 @@ def test_root_help_lists_existing_commands() -> None:
     assert "server-start" in result.output
     assert "artifact-audit" in result.output
     assert "verify-sim-parity" in result.output
+    assert "dashboard" in result.output
 
 
 def test_episode_command_delegates_to_episode_generator(monkeypatch) -> None:
@@ -96,3 +97,45 @@ def test_verify_sim_parity_force_flag_is_forwarded(monkeypatch) -> None:
         "module": "src.cli.sim_parity_guard",
         "args": ["--force"],
     }
+
+
+def test_dashboard_command_runs_frontend_dev_server_when_backend_is_healthy(
+    monkeypatch,
+) -> None:
+    runner = CliRunner()
+    captured: dict[str, object] = {}
+
+    def fake_check_health(url: str, timeout: float = 2.0) -> bool:
+        captured["url"] = url
+        captured["timeout"] = timeout
+        return True
+
+    def fake_run(command, cwd=None, check=False, env=None):
+        captured["command"] = command
+        captured["cwd"] = cwd
+        captured["check"] = check
+        captured["env"] = env
+        return 0
+
+    monkeypatch.setattr(cli_main, "_check_health", fake_check_health)
+    monkeypatch.setattr(cli_main.subprocess, "run", fake_run)
+
+    result = runner.invoke(cli_main.cli, ["dashboard"])
+
+    assert result.exit_code == 0
+    assert captured["url"] == "http://127.0.0.1:8000/api/__health__"
+    assert captured["command"] == ["npm", "run", "dev"]
+    assert captured["cwd"] == cli_main._repo_root() / "src/dashboard/frontend"
+    assert captured["check"] is False
+
+
+def test_dashboard_command_prints_recovery_command_when_backend_is_unhealthy(
+    monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(cli_main, "_check_health", lambda url, timeout=2.0: False)
+
+    exit_code = cli_main.main(["dashboard"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "uv run simuhome server-start --port 8000" in captured.out

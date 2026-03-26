@@ -1,6 +1,8 @@
 import ApiRoundedIcon from "@mui/icons-material/ApiRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
+import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
+import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
 import RadarRoundedIcon from "@mui/icons-material/RadarRounded";
 import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
 import ScienceRoundedIcon from "@mui/icons-material/ScienceRounded";
@@ -25,7 +27,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { Outlet, Link as RouterLink, useLocation } from "react-router-dom";
 
-import { useDashboardQuery } from "./api";
+import { apiUrl, useDashboardQuery } from "./api";
 
 const NAV_ITEMS = [
   {
@@ -64,9 +66,42 @@ export function DashboardLayout() {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [serverActionPending, setServerActionPending] = useState(false);
+  const [serverActionMessage, setServerActionMessage] = useState<string | null>(null);
   const health = useDashboardQuery<Record<string, never>>("/api/__health__", {
     intervalMs: 5000,
   });
+  const apiHealthy = !health.error;
+
+  async function handleServerAction(action: "start" | "stop") {
+    setServerActionPending(true);
+    setServerActionMessage(null);
+    try {
+      const response = await fetch(apiUrl(`/__dashboard_control/${action}-api`), {
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        ok: boolean;
+        action: "start" | "stop";
+        error?: string;
+      };
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? `Failed to ${action} API.`);
+      }
+      setServerActionMessage(
+        action === "start"
+          ? "Start signal sent. API should come online shortly."
+          : "Stop signal sent. API will go offline shortly.",
+      );
+      await health.refresh();
+    } catch (error) {
+      setServerActionMessage(
+        error instanceof Error ? error.message : `Failed to ${action} API.`,
+      );
+    } finally {
+      setServerActionPending(false);
+    }
+  }
 
   const nav = (
     <List sx={{ minWidth: 260, p: 0 }}>
@@ -134,6 +169,11 @@ export function DashboardLayout() {
                 label="ICLR 2026 Oral"
                 variant="filled"
                 color="primary"
+                component="a"
+                clickable
+                href="https://iclr.cc/Conferences/2026"
+                target="_blank"
+                rel="noreferrer"
               />
               <Chip
                 label="GitHub"
@@ -155,6 +195,20 @@ export function DashboardLayout() {
                 rel="noreferrer"
                 icon={<OpenInNewRoundedIcon fontSize="small" />}
               />
+              <Chip
+                label={apiHealthy ? "Stop API" : "Start API"}
+                variant="outlined"
+                clickable
+                disabled={serverActionPending}
+                onClick={() => void handleServerAction(apiHealthy ? "stop" : "start")}
+                icon={
+                  apiHealthy ? (
+                    <StopCircleRoundedIcon fontSize="small" />
+                  ) : (
+                    <PlayArrowRoundedIcon fontSize="small" />
+                  )
+                }
+              />
             </Stack>
           </Box>
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ pl: 1 }}>
@@ -163,16 +217,26 @@ export function DashboardLayout() {
                 width: 10,
                 height: 10,
                 borderRadius: "50%",
-                bgcolor: health.error ? "#b91c1c" : "#15803d",
-                boxShadow: health.error
-                  ? "0 0 0 3px rgba(185, 28, 28, 0.14)"
-                  : "0 0 0 3px rgba(21, 128, 61, 0.14)",
+                bgcolor: apiHealthy ? "#15803d" : "#b91c1c",
+                boxShadow: apiHealthy
+                  ? "0 0 0 3px rgba(21, 128, 61, 0.14)"
+                  : "0 0 0 3px rgba(185, 28, 28, 0.14)",
                 flexShrink: 0,
               }}
             />
-            <Typography variant="body2" sx={{ fontWeight: 700 }}>
-              {health.error ? "API offline" : "API healthy"}
-            </Typography>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                {apiHealthy ? "API healthy" : "API offline"}
+              </Typography>
+              {serverActionMessage ? (
+                <Typography
+                  variant="caption"
+                  sx={{ mt: 0.5, display: "block", color: "text.secondary" }}
+                >
+                  {serverActionMessage}
+                </Typography>
+              ) : null}
+            </Box>
           </Stack>
         </Toolbar>
         <Tabs

@@ -1,8 +1,18 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
+import { createDashboardControlMiddleware } from "./dev-control";
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: "dashboard-control",
+      configureServer(server) {
+        server.middlewares.use(createDashboardControlMiddleware());
+      },
+    },
+  ],
   test: {
     environment: "jsdom",
     globals: true,
