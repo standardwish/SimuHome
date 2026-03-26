@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import os
 import subprocess
 import time
+
+import click
 
 
 def get_pids(port: int) -> list[str]:
@@ -9,7 +13,7 @@ def get_pids(port: int) -> list[str]:
     return result.stdout.strip().split()
 
 
-def stop_server_on_port(port: int):
+def stop_server_on_port(port: int) -> None:
     try:
         pids = get_pids(port)
         if not pids:
@@ -31,19 +35,34 @@ def stop_server_on_port(port: int):
         print(f"[stop_servers] Error on port {port}: {e}")
 
 
-def main():
+def _resolve_ports(explicit_ports: tuple[int, ...]) -> list[int]:
     ports: set[int] = set()
+
+    ports.update(explicit_ports)
 
     if env_port := os.environ.get("PORT"):
         ports.add(int(env_port))
 
-    if not ports:
-        return
+    return sorted(ports)
 
-    print(f"[stop_servers] Target ports: {sorted(ports)}")
-    for port in sorted(ports):
+
+@click.command(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option("--port", "ports", type=int, multiple=True, help="Port(s) to stop.")
+def cli(ports: tuple[int, ...]) -> int:
+    resolved_ports = _resolve_ports(ports)
+    if not resolved_ports:
+        return 0
+
+    print(f"[stop_servers] Target ports: {resolved_ports}")
+    for port in resolved_ports:
         stop_server_on_port(port)
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    result = cli.main(args=argv, prog_name="stop-servers", standalone_mode=False)
+    return 0 if result is None else int(result)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import argparse
 import subprocess
 import sys
 from pathlib import Path
 from typing import List
+
+import click
 
 
 RELEVANT_PATH_PREFIXES = (
@@ -75,46 +76,44 @@ def _run_guard_suite(cwd: Path) -> int:
     command = [
         sys.executable,
         "-m",
-        "unittest",
-        "src.cli.sim_parity_guard_tests",
+        "pytest",
+        "tests/cli/test_sim_parity_guard_parity.py",
         "-v",
     ]
     result = subprocess.run(command, cwd=cwd, check=False)
     return int(result.returncode)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Run simulator parity guard automatically when simulator/runtime core files change."
-        )
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Run parity guard regardless of changed files.",
-    )
-    parser.add_argument(
-        "--staged-only",
-        action="store_true",
-        help="Consider only staged changes (useful for pre-commit hooks).",
-    )
-    parser.add_argument(
-        "--base-ref",
-        default=None,
-        help="Optional git base reference to include in changed-file detection.",
-    )
-
-    args = parser.parse_args()
-
+@click.command(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help=(
+        "Run simulator parity guard automatically when simulator/runtime core files change."
+    ),
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Run parity guard regardless of changed files.",
+)
+@click.option(
+    "--staged-only",
+    is_flag=True,
+    help="Consider only staged changes (useful for pre-commit hooks).",
+)
+@click.option(
+    "--base-ref",
+    default=None,
+    help="Optional git base reference to include in changed-file detection.",
+)
+def cli(force: bool, staged_only: bool, base_ref: str | None) -> int:
     repo_root = Path(__file__).resolve().parents[2]
     in_git_repo = _is_git_repo(repo_root)
 
-    if not args.force and in_git_repo:
+    if not force and in_git_repo:
         changed_files = _collect_changed_files(
             repo_root,
-            staged_only=bool(args.staged_only),
-            base_ref=args.base_ref,
+            staged_only=bool(staged_only),
+            base_ref=base_ref,
         )
         relevant = [path for path in changed_files if _is_relevant_change(path)]
         if not relevant:
@@ -135,6 +134,11 @@ def main() -> int:
     else:
         print("[sim-parity-guard] FAIL")
     return code
+
+
+def main(argv: list[str] | None = None) -> int:
+    result = cli.main(args=argv, prog_name="sim-parity-guard", standalone_mode=False)
+    return 0 if result is None else int(result)
 
 
 if __name__ == "__main__":

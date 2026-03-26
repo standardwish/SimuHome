@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import re
@@ -8,6 +7,8 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+import click
 
 from src.cli.arg_utils import parse_integer_spec
 
@@ -717,61 +718,74 @@ def run_audit(
     return report, rerun_plan
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Spec-driven run artifact audit")
-    parser.add_argument("--run-dir", type=str, required=True)
-    parser.add_argument(
-        "--type", type=str, choices=["auto", "generation", "evaluation"], default="auto"
-    )
-    parser.add_argument("--report", type=str, default=DEFAULT_REPORT_FILE)
-    parser.add_argument("--rerun-plan", type=str, default=DEFAULT_RERUN_PLAN_FILE)
-    parser.add_argument(
-        "--strict", action="store_true", help="exit non-zero if any item is not success"
-    )
-    return parser.parse_args(argv)
-
-
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    run_dir = Path(args.run_dir).expanduser().resolve()
+@click.command(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Spec-driven run artifact audit",
+)
+@click.option("--run-dir", required=True, type=click.Path(path_type=Path))
+@click.option(
+    "--type",
+    "run_type",
+    type=click.Choice(["auto", "generation", "evaluation"]),
+    default="auto",
+    show_default=True,
+)
+@click.option("--report", default=DEFAULT_REPORT_FILE, show_default=True)
+@click.option("--rerun-plan", default=DEFAULT_RERUN_PLAN_FILE, show_default=True)
+@click.option(
+    "--strict",
+    is_flag=True,
+    help="exit non-zero if any item is not success",
+)
+def cli(
+    run_dir: Path,
+    run_type: str,
+    report: str,
+    rerun_plan: str,
+    strict: bool,
+) -> int:
+    run_dir = run_dir.expanduser().resolve()
     if not run_dir.exists() or not run_dir.is_dir():
         print(f"[artifact-audit] ERROR: run directory not found: {run_dir}")
         return 1
 
     try:
-        report, rerun_plan = run_audit(
+        report_payload, rerun_plan_payload = run_audit(
             run_dir=run_dir,
-            run_type=args.type,
+            run_type=run_type,
         )
     except Exception as exc:  # pragma: no cover
         print(f"[artifact-audit] ERROR: {exc}")
         return 1
 
     report_path = (
-        run_dir / args.report
-        if not Path(args.report).is_absolute()
-        else Path(args.report)
+        run_dir / report if not Path(report).is_absolute() else Path(report)
     )
     rerun_plan_path = (
-        run_dir / args.rerun_plan
-        if not Path(args.rerun_plan).is_absolute()
-        else Path(args.rerun_plan)
+        run_dir / rerun_plan
+        if not Path(rerun_plan).is_absolute()
+        else Path(rerun_plan)
     )
 
-    _json_write(report_path, report)
-    _json_write(rerun_plan_path, rerun_plan)
+    _json_write(report_path, report_payload)
+    _json_write(rerun_plan_path, rerun_plan_payload)
 
-    failures = not _build_overall_status(report)
+    failures = not _build_overall_status(report_payload)
     status_word = "PASS" if not failures else "FAIL"
     print(
-        f"[artifact-audit] {status_word}: {report['run_dir']} ({report['summary']['counts']})"
+        f"[artifact-audit] {status_word}: {report_payload['run_dir']} ({report_payload['summary']['counts']})"
     )
     print(f"[artifact-audit] report -> {report_path}")
     print(f"[artifact-audit] rerun_plan -> {rerun_plan_path}")
 
-    if failures and args.strict:
+    if failures and strict:
         return 2
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    result = cli.main(args=argv, prog_name="artifact-audit", standalone_mode=False)
+    return 0 if result is None else int(result)
 
 
 if __name__ == "__main__":
