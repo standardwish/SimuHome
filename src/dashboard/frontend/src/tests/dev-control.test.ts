@@ -6,7 +6,7 @@ import {
   DASHBOARD_CONTROL_PATHS,
   createDashboardControlMiddleware,
   runDashboardControlCommand,
-} from "./dev-control";
+} from "../../dev-control";
 
 describe("dev-control", () => {
   it("runs the start command from the repository root", async () => {

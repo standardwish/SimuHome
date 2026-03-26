@@ -1,21 +1,23 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import { ApiExplorerPage } from "./ApiExplorerPage";
-import { DashboardLayout } from "./DashboardLayout";
-import { EvaluationPage } from "./EvaluationPage";
-import { SimulatorPage } from "./SimulatorPage";
-import { WikiPage } from "./WikiPage";
+import { Layout } from "@/Layout";
+import { ApiExplorerContainer } from "@/pages/ApiExplorer/Container";
+import { EvaluationContainer } from "@/pages/Evaluation/Container";
+import { EvaluationRunDetailContainer } from "@/pages/EvaluationRunDetail/Container";
+import { SimulatorContainer } from "@/pages/Simulator/Container";
+import { WikiContainer } from "@/pages/Wiki/Container";
 
 export function App() {
   return (
     <Routes>
-      <Route element={<DashboardLayout />}>
+      <Route element={<Layout />}>
         <Route index element={<Navigate to="/simulator" replace />} />
-        <Route path="/simulator" element={<SimulatorPage />} />
-        <Route path="/evaluation" element={<EvaluationPage />} />
-        <Route path="/api-explorer" element={<ApiExplorerPage />} />
-        <Route path="/wiki" element={<WikiPage />} />
-        <Route path="/wiki/:deviceType" element={<WikiPage />} />
+        <Route path="/simulator" element={<SimulatorContainer />} />
+        <Route path="/evaluation" element={<EvaluationContainer />} />
+        <Route path="/evaluation/:runId" element={<EvaluationRunDetailContainer />} />
+        <Route path="/api-explorer" element={<ApiExplorerContainer />} />
+        <Route path="/wiki" element={<WikiContainer />} />
+        <Route path="/wiki/:deviceType" element={<WikiContainer />} />
       </Route>
     </Routes>
   );

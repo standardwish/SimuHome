@@ -1,4 +1,4 @@
-import { execFile, type ExecFileOptions } from "node:child_process";
+import { execFile } from "node:child_process";
 import { resolve } from "node:path";
 
 export const DASHBOARD_CONTROL_PATHS = {
@@ -7,13 +7,7 @@ export const DASHBOARD_CONTROL_PATHS = {
 } as const;
 
 type DashboardControlAction = "start" | "stop";
-type ExecFileCallback = (error: Error | null, stdout: string, stderr: string) => void;
-type ExecFileImpl = (
-  file: string,
-  args: string[],
-  options: ExecFileOptions,
-  callback: ExecFileCallback,
-) => unknown;
+type ExecFileImpl = typeof execFile;
 
 const REPO_ROOT = resolve(__dirname, "../../..");
 const API_PORT = "8000";

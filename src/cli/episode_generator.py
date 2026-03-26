@@ -488,11 +488,6 @@ def _parse_home_schema(raw: object) -> dict[str, object]:
     }
 
 
-def _requires_temperature_one(model: str) -> bool:
-    normalized = model.strip().lower()
-    return normalized == "gpt-5-mini" or normalized.endswith("/gpt-5-mini")
-
-
 def _parse_integer_spec(spec: str) -> list[int]:
     tokens = [t.strip() for t in (spec or "").split(",") if t.strip()]
     out: list[int] = []
@@ -638,8 +633,6 @@ def _resolve_generation_spec(
         raise ConfigurationError("llm.api_key must resolve to a non-empty string")
 
     llm_temperature = _to_float(llm.get("temperature", 0.5), "llm.temperature")
-    if _requires_temperature_one(llm_model) and abs(llm_temperature - 1.0) > 1e-9:
-        raise ConfigurationError("llm.temperature must be 1 for gpt-5-mini generation")
 
     return {
         "run_id": run_id,

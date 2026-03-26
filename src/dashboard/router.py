@@ -15,6 +15,7 @@ from src.simulator.domain.result import Result
 
 from .backend.runtime import (
     get_evaluation_logs,
+    get_evaluation_run_detail,
     get_evaluation_run,
     get_evaluation_summary,
     get_runtime_config,
@@ -111,6 +112,11 @@ def get_local_evaluation_spec_preview(path: str):
 @router.get("/local/evaluations/runs/{run_id}")
 def get_local_evaluation_run(run_id: str):
     return ResponseBuilder.from_result(Result.ok(get_evaluation_run(run_id)))
+
+
+@router.get("/local/evaluations/runs/{run_id}/detail")
+def get_local_evaluation_run_detail(run_id: str):
+    return ResponseBuilder.from_result(Result.ok(get_evaluation_run_detail(run_id)))
 
 
 @router.get("/local/evaluations/runs/{run_id}/summary")

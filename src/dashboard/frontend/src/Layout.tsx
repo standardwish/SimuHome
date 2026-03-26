@@ -2,10 +2,10 @@ import ApiRoundedIcon from "@mui/icons-material/ApiRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
-import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
 import RadarRoundedIcon from "@mui/icons-material/RadarRounded";
 import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
 import ScienceRoundedIcon from "@mui/icons-material/ScienceRounded";
+import StopCircleRoundedIcon from "@mui/icons-material/StopCircleRounded";
 import {
   AppBar,
   Box,
@@ -24,10 +24,11 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, Link as RouterLink, useLocation } from "react-router-dom";
 
-import { apiUrl, useDashboardQuery } from "./api";
+import { apiUrl, useDashboardQuery } from "@/api";
+import { useDashboardRuntimeStore } from "@/store";
 
 const NAV_ITEMS = [
   {
@@ -61,21 +62,29 @@ function selectedTab(pathname: string) {
   return match?.path ?? "/simulator";
 }
 
-export function DashboardLayout() {
+export function Layout() {
   const location = useLocation();
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [serverActionPending, setServerActionPending] = useState(false);
-  const [serverActionMessage, setServerActionMessage] = useState<string | null>(null);
+  const pollingIntervalMs = useDashboardRuntimeStore((state) => state.pollingIntervalMs);
+  const apiHealthy = useDashboardRuntimeStore((state) => state.apiHealthy);
+  const setApiHealthy = useDashboardRuntimeStore((state) => state.setApiHealthy);
+
   const health = useDashboardQuery<Record<string, never>>("/api/__health__", {
-    intervalMs: 5000,
+    intervalMs: pollingIntervalMs,
   });
-  const apiHealthy = !health.error;
+
+  useEffect(() => {
+    if (health.loading) {
+      return;
+    }
+    setApiHealthy(!health.error);
+  }, [health.error, health.loading, setApiHealthy]);
 
   async function handleServerAction(action: "start" | "stop") {
     setServerActionPending(true);
-    setServerActionMessage(null);
     try {
       const response = await fetch(apiUrl(`/__dashboard_control/${action}-api`), {
         method: "POST",
@@ -88,16 +97,9 @@ export function DashboardLayout() {
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error ?? `Failed to ${action} API.`);
       }
-      setServerActionMessage(
-        action === "start"
-          ? "Start signal sent. API should come online shortly."
-          : "Stop signal sent. API will go offline shortly.",
-      );
       await health.refresh();
     } catch (error) {
-      setServerActionMessage(
-        error instanceof Error ? error.message : `Failed to ${action} API.`,
-      );
+      console.error(error);
     } finally {
       setServerActionPending(false);
     }
@@ -210,6 +212,9 @@ export function DashboardLayout() {
                 }
               />
             </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Health checks and dashboard polling run every 5 seconds.
+            </Typography>
           </Box>
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ pl: 1 }}>
             <Box
@@ -228,14 +233,6 @@ export function DashboardLayout() {
               <Typography variant="body2" sx={{ fontWeight: 700 }}>
                 {apiHealthy ? "API healthy" : "API offline"}
               </Typography>
-              {serverActionMessage ? (
-                <Typography
-                  variant="caption"
-                  sx={{ mt: 0.5, display: "block", color: "text.secondary" }}
-                >
-                  {serverActionMessage}
-                </Typography>
-              ) : null}
             </Box>
           </Stack>
         </Toolbar>

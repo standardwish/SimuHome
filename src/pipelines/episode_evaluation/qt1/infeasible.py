@@ -62,4 +62,5 @@ def evaluate(payload: Dict[str, Any], judge_llms: List[LLMProvider]) -> Dict[str
         "error_type": judge_result["error_type"],
         "required_actions": required_actions_result,
         "judge": judge_result["judge"],
+        "judge_error_details": judge_result["judge_error_details"],
     }

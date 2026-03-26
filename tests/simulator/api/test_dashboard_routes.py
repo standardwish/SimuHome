@@ -103,6 +103,137 @@ def test_local_evaluation_runs_lists_runs_from_experiments_directory(
     assert data["runs"][0]["has_summary"] is True
 
 
+def test_local_evaluation_run_detail_exposes_model_groups_and_artifacts(
+    monkeypatch, tmp_path: Path
+) -> None:
+    experiments_dir = tmp_path / "experiments"
+    run_dir = experiments_dir / "demo-run"
+    model_dir = run_dir / "gpt-4.1"
+    model_dir.mkdir(parents=True)
+    (run_dir / "manifest.json").write_text(
+        json.dumps({"run_id": "demo-run", "schema": "simuhome-eval-spec-v1"}),
+        encoding="utf-8",
+    )
+    (run_dir / "run_summary.json").write_text(
+        json.dumps({"totals": {"success": 3, "failed": 1, "pending": 0, "total": 4}}),
+        encoding="utf-8",
+    )
+    (model_dir / "episode-1.json").write_text(
+        json.dumps(
+            {
+                "seed": 1,
+                "query_type": "qt1",
+                "case": "feasible",
+                "duration": 4.2,
+                "final_answer": "Utility room is bright.",
+                "evaluation_result": {
+                    "score": 1,
+                    "error_type": None,
+                    "required_actions": [
+                        {"tool": "get_room_states", "params": {"room_id": "utility_room"}, "invoked": True}
+                    ],
+                    "judge": ["A", "A", "B"],
+                },
+                "tools_invoked": [
+                    {
+                        "tool": "get_room_states",
+                        "params": {"room_id": "utility_room"},
+                        "outcome": {"ok": True, "status_code": 200, "error_type": None},
+                    }
+                ],
+                "steps": [
+                    {
+                        "step": 1,
+                        "thought": "Check utility room.",
+                        "action": "get_room_states",
+                        "action_input": {"room_id": "utility_room"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(experiments_dir))
+
+    client = TestClient(create_app())
+
+    response = client.get("/api/local/evaluations/runs/demo-run/detail")
+
+    data = _unwrap_ok(response)
+    assert data["run_id"] == "demo-run"
+    assert data["summary"]["total"] == 4
+    assert data["summary"]["success"] == 3
+    assert data["models"][0]["model"] == "gpt-4.1"
+    assert data["models"][0]["artifacts"][0]["file_name"] == "episode-1.json"
+    assert data["models"][0]["artifacts"][0]["final_answer"] == "Utility room is bright."
+    assert data["models"][0]["artifacts"][0]["required_actions"]["invoked"] == 1
+    assert data["models"][0]["artifacts"][0]["steps"][0]["action"] == "get_room_states"
+
+
+def test_local_evaluation_runs_includes_judge_failure_details(
+    monkeypatch, tmp_path: Path
+) -> None:
+    experiments_dir = tmp_path / "experiments"
+    run_dir = experiments_dir / "demo-run"
+    model_dir = run_dir / "gpt-4.1"
+    model_dir.mkdir(parents=True)
+    (run_dir / "manifest.json").write_text(
+        json.dumps({"run_id": "demo-run", "schema": "simuhome-eval-spec-v1"}),
+        encoding="utf-8",
+    )
+    (model_dir / "episode-1.json").write_text(
+        json.dumps(
+            {
+                "evaluation_result": {
+                    "score": -1,
+                    "error_type": "Judge Error",
+                    "judge": ["Error", "Error", "Error"],
+                    "judge_error_details": [
+                        "LLM request exhausted 11 attempts: 400 unsupported model"
+                    ],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(experiments_dir))
+
+    client = TestClient(create_app())
+
+    response = client.get("/api/local/evaluations/runs")
+
+    data = _unwrap_ok(response)
+    assert data["runs"][0]["judge_failures"] == [
+        {
+            "model": "gpt-4.1",
+            "artifact": "episode-1.json",
+            "artifact_path": str(model_dir / "episode-1.json"),
+            "details": ["LLM request exhausted 11 attempts: 400 unsupported model"],
+        }
+    ]
+
+
+def test_local_evaluation_runs_ignores_dashboard_log_directories_without_manifest(
+    monkeypatch, tmp_path: Path
+) -> None:
+    experiments_dir = tmp_path / "experiments"
+    (experiments_dir / "eval_spec.example-dashboard").mkdir(parents=True)
+    run_dir = experiments_dir / "demo-run"
+    run_dir.mkdir(parents=True)
+    (run_dir / "manifest.json").write_text(
+        json.dumps({"run_id": "demo-run", "schema": "simuhome-eval-spec-v1"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(experiments_dir))
+
+    client = TestClient(create_app())
+
+    response = client.get("/api/local/evaluations/runs")
+
+    data = _unwrap_ok(response)
+    assert [run["run_id"] for run in data["runs"]] == ["demo-run"]
+
+
 def test_local_evaluation_start_spawns_background_process(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -130,6 +261,93 @@ def test_local_evaluation_start_spawns_background_process(
     assert data["accepted"] is True
     assert data["pid"] == 4321
     assert captured["command"][-2:] == ["--spec", "eval_spec.example.yaml"]
+
+
+def test_local_evaluation_start_clears_existing_dashboard_log(
+    monkeypatch, tmp_path: Path
+) -> None:
+    class DummyProcess:
+        pid = 4321
+
+    def fake_popen(command, **kwargs):
+        return DummyProcess()
+
+    experiments_dir = tmp_path / "experiments"
+    log_dir = experiments_dir / "eval_spec.example-dashboard"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "dashboard.log"
+    log_path.write_text("stale log line\n", encoding="utf-8")
+
+    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(experiments_dir))
+    monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
+
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/local/evaluations/start",
+        json={"spec_path": "eval_spec.example.yaml"},
+    )
+
+    data = _unwrap_ok(response)
+    assert data["accepted"] is True
+    assert log_path.read_text(encoding="utf-8") == ""
+
+
+def test_local_evaluation_start_uses_write_mode_for_dashboard_log(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyProcess:
+        pid = 4321
+
+    def fake_popen(command, **kwargs):
+        captured["stdout_mode"] = kwargs["stdout"].mode
+        return DummyProcess()
+
+    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
+    monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
+
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/local/evaluations/start",
+        json={"spec_path": "eval_spec.example.yaml"},
+    )
+
+    data = _unwrap_ok(response)
+    assert data["accepted"] is True
+    assert captured["stdout_mode"] == "w"
+
+
+def test_local_evaluation_resume_uses_append_mode_for_dashboard_log(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyProcess:
+        pid = 4321
+
+    def fake_popen(command, **kwargs):
+        captured["stdout_mode"] = kwargs["stdout"].mode
+        return DummyProcess()
+
+    run_dir = tmp_path / "experiments" / "demo-run"
+    run_dir.mkdir(parents=True)
+
+    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
+    monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
+
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/local/evaluations/resume",
+        json={"resume_path": str(run_dir)},
+    )
+
+    data = _unwrap_ok(response)
+    assert data["accepted"] is True
+    assert captured["stdout_mode"] == "a"
 
 
 def test_local_server_stop_schedules_background_shutdown(monkeypatch) -> None:

@@ -29,6 +29,8 @@ def list_evaluation_runs() -> dict[str, Any]:
             reverse=True,
         ):
             manifest = _read_json(run_dir / "manifest.json")
+            if manifest is None:
+                continue
             state = _read_json(run_dir / "run_state.json")
             summary = _read_json(run_dir / "run_summary.json")
             runs.append(
@@ -36,6 +38,7 @@ def list_evaluation_runs() -> dict[str, Any]:
                     "run_id": str(manifest.get("run_id") or run_dir.name),
                     "path": str(run_dir),
                     "has_summary": summary is not None,
+                    "judge_failures": _collect_judge_failures(run_dir),
                     "manifest": manifest,
                     "state": state,
                     "summary": summary,
@@ -52,6 +55,42 @@ def get_evaluation_run(run_id: str) -> dict[str, Any]:
         "manifest": _read_json(run_dir / "manifest.json"),
         "state": _read_json(run_dir / "run_state.json"),
         "summary": _read_json(run_dir / "run_summary.json"),
+    }
+
+
+def get_evaluation_run_detail(run_id: str) -> dict[str, Any]:
+    run_dir = _experiments_dir() / run_id
+    summary_payload = _read_json(run_dir / "run_summary.json") or {}
+    totals = summary_payload.get("totals") if isinstance(summary_payload, dict) else {}
+    summary = totals if isinstance(totals, dict) else {}
+
+    models: list[dict[str, Any]] = []
+    for model_dir in sorted([path for path in run_dir.iterdir() if path.is_dir()]):
+        artifacts = []
+        for artifact_path in sorted(model_dir.glob("*.json")):
+            artifact = _read_json(artifact_path)
+            if artifact is None:
+                continue
+            artifacts.append(_summarize_artifact(artifact_path, artifact))
+        if artifacts:
+            models.append(
+                {
+                    "model": model_dir.name,
+                    "path": str(model_dir),
+                    "artifacts": artifacts,
+                }
+            )
+
+    return {
+        "run_id": run_id,
+        "path": str(run_dir),
+        "summary": {
+            "total": int(summary.get("total", sum(len(model["artifacts"]) for model in models))),
+            "success": int(summary.get("success", 0)),
+            "failed": int(summary.get("failed", 0)),
+            "pending": int(summary.get("pending", 0)),
+        },
+        "models": models,
     }
 
 
@@ -171,7 +210,7 @@ def start_evaluation(spec_path: str) -> dict[str, Any]:
         "--spec",
         spec_path,
     ]
-    process = _spawn(command, log_path)
+    process = _spawn(command, log_path, file_mode="w")
     return {
         "accepted": True,
         "pid": int(process.pid),
@@ -189,7 +228,7 @@ def resume_evaluation(resume_path: str) -> dict[str, Any]:
         "--resume",
         resume_path,
     ]
-    process = _spawn(command, log_path)
+    process = _spawn(command, log_path, file_mode="a")
     return {
         "accepted": True,
         "pid": int(process.pid),
@@ -198,25 +237,28 @@ def resume_evaluation(resume_path: str) -> dict[str, Any]:
     }
 
 
-def _spawn(command: list[str], log_path: Path) -> subprocess.Popen[Any]:
+def _spawn(command: list[str], log_path: Path, *, file_mode: str) -> subprocess.Popen[Any]:
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_handle = log_path.open("a", encoding="utf-8")
+    log_handle = log_path.open(file_mode, encoding="utf-8")
     env = os.environ.copy()
     env.setdefault("SIMUHOME_EXPERIMENTS_DIR", str(_experiments_dir()))
-    return subprocess.Popen(
-        command,
-        cwd=Path(__file__).resolve().parents[3],
-        env=env,
-        stdout=log_handle,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=Path(__file__).resolve().parents[3],
+            env=env,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    finally:
+        log_handle.close()
+    return process
 
 
 def _ensure_eval_log_dir(spec_path: str) -> Path:
     spec_name = Path(spec_path).stem or "evaluation"
     return _experiments_dir() / f"{spec_name}-dashboard" / "dashboard.log"
-
 
 def _experiments_dir() -> Path:
     return Path(os.getenv("SIMUHOME_EXPERIMENTS_DIR", "experiments")).resolve()
@@ -229,6 +271,101 @@ def _read_json(path: Path) -> dict[str, Any] | None:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return None
+
+
+def _collect_judge_failures(run_dir: Path) -> list[dict[str, Any]]:
+    failures: list[dict[str, Any]] = []
+    for model_dir in sorted([path for path in run_dir.iterdir() if path.is_dir()]):
+        for artifact_path in sorted(model_dir.glob("*.json")):
+            artifact = _read_json(artifact_path)
+            if artifact is None:
+                continue
+            evaluation_result = artifact.get("evaluation_result")
+            if not isinstance(evaluation_result, dict):
+                continue
+            if evaluation_result.get("error_type") != "Judge Error":
+                continue
+            details = evaluation_result.get("judge_error_details")
+            failures.append(
+                {
+                    "model": model_dir.name,
+                    "artifact": artifact_path.name,
+                    "artifact_path": str(artifact_path),
+                    "details": details if isinstance(details, list) else [],
+                }
+            )
+    return failures
+
+
+def _summarize_artifact(artifact_path: Path, artifact: dict[str, Any]) -> dict[str, Any]:
+    evaluation_result = artifact.get("evaluation_result")
+    if not isinstance(evaluation_result, dict):
+        evaluation_result = {}
+
+    required_actions = evaluation_result.get("required_actions")
+    if not isinstance(required_actions, list):
+        required_actions = []
+
+    judge = evaluation_result.get("judge")
+    if not isinstance(judge, list):
+        judge = []
+
+    judge_error_details = evaluation_result.get("judge_error_details")
+    if not isinstance(judge_error_details, list):
+        judge_error_details = []
+
+    tools_invoked = artifact.get("tools_invoked")
+    normalized_tools = []
+    if isinstance(tools_invoked, list):
+        for entry in tools_invoked:
+            if not isinstance(entry, dict):
+                continue
+            outcome = entry.get("outcome")
+            if not isinstance(outcome, dict):
+                outcome = {}
+            normalized_tools.append(
+                {
+                    "tool": str(entry.get("tool") or "unknown"),
+                    "ok": bool(outcome.get("ok")),
+                    "status_code": outcome.get("status_code"),
+                    "error_type": outcome.get("error_type"),
+                }
+            )
+
+    steps = artifact.get("steps")
+    normalized_steps = []
+    if isinstance(steps, list):
+        for entry in steps:
+            if not isinstance(entry, dict):
+                continue
+            normalized_steps.append(
+                {
+                    "step": entry.get("step"),
+                    "thought": entry.get("thought"),
+                    "action": entry.get("action"),
+                    "action_input": entry.get("action_input"),
+                }
+            )
+
+    return {
+        "file_name": artifact_path.name,
+        "file_path": str(artifact_path),
+        "query_type": artifact.get("query_type"),
+        "case": artifact.get("case"),
+        "seed": artifact.get("seed"),
+        "duration": artifact.get("duration"),
+        "score": evaluation_result.get("score"),
+        "error_type": evaluation_result.get("error_type"),
+        "final_answer": artifact.get("final_answer"),
+        "required_actions": {
+            "total": len(required_actions),
+            "invoked": sum(1 for action in required_actions if action.get("invoked")),
+        },
+        "judge": judge,
+        "judge_error_details": judge_error_details,
+        "tools_invoked": normalized_tools,
+        "steps": normalized_steps,
+    }
 
 
 def _require_mapping(value: object, key_name: str) -> dict[str, object]:

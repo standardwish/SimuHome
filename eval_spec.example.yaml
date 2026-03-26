@@ -33,10 +33,14 @@ judge:
   api_key: env:OPENAI_API_KEY
 
 models:
-  - model: openai/gpt-4.1
-    api_base: https://openrouter.ai/api/v1
-    api_key: env:OPENROUTER_API_KEY
+  # - model: openai/gpt-4.1
+  #   api_base: https://openrouter.ai/api/v1
+  #   api_key: env:OPENROUTER_API_KEY
 
-  - model: qwen3-30b-instruct
-    api_base: http://127.0.0.1:8000/v1
-    api_key: null
+  - model: gpt-4.1
+    api_base: https://api.openai.com/v1
+    api_key: env:OPENAI_API_KEY
+
+  # - model: qwen3-30b-instruct
+  #   api_base: http://127.0.0.1:8000/v1
+  #   api_key: null

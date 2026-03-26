@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import time
 import importlib
@@ -17,7 +18,11 @@ from src.agents.providers.base import (
     NonRetryableLLMError,
     _normalize_messages,
 )
+from src.agents.providers.model_capabilities import supports_temperature_parameter
 from src.agents.types import ChatMessage
+
+
+logger = logging.getLogger(__name__)
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -64,6 +69,23 @@ def _is_context_overflow_error(message: str) -> bool:
         "input_tokens",
     )
     return any(marker in text for marker in markers)
+
+
+def _is_unsupported_temperature_error(exc: BaseException) -> bool:
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        nested = body.get("error")
+        if isinstance(nested, dict):
+            param = nested.get("param")
+            code = nested.get("code")
+            message = str(nested.get("message") or "").lower()
+            if param == "temperature" and code == "unsupported_value":
+                return True
+            if "unsupported value" in message and "temperature" in message:
+                return True
+
+    message = _extract_error_message(exc).lower()
+    return "unsupported value" in message and "temperature" in message
 
 
 class OpenAIChatProvider(LLMProvider):
@@ -117,10 +139,16 @@ class OpenAIChatProvider(LLMProvider):
         oa_msgs = _normalize_messages(messages)
         kwargs: Dict[str, Any] = {
             "model": self.model,
-            "temperature": self.temperature,
             "seed": self.seed,
             "messages": oa_msgs,
         }
+        if supports_temperature_parameter(self.model):
+            kwargs["temperature"] = self.temperature
+        else:
+            logger.warning(
+                "Model %s does not support the temperature parameter; omitting it from the request.",
+                self.model,
+            )
         if response_format:
             kwargs["response_format"] = response_format
 
@@ -136,6 +164,7 @@ class OpenAIChatProvider(LLMProvider):
         last_error: BaseException | None = None
         retries = 0
         max_attempts = self.max_retries + 1
+        temperature_fallback_used = "temperature" not in kwargs
 
         while retries < max_attempts:
             try:
@@ -155,6 +184,18 @@ class OpenAIChatProvider(LLMProvider):
                     and 400 <= status_code < 500
                     and status_code not in (408, 429)
                 ):
+                    if (
+                        not temperature_fallback_used
+                        and "temperature" in kwargs
+                        and _is_unsupported_temperature_error(e)
+                    ):
+                        logger.warning(
+                            "Model %s rejected the temperature parameter. Retrying request without temperature.",
+                            self.model,
+                        )
+                        kwargs.pop("temperature", None)
+                        temperature_fallback_used = True
+                        continue
                     if _is_context_overflow_error(message):
                         raise NonRetryableLLMError(
                             f"LLM context window exceeded: {message}"

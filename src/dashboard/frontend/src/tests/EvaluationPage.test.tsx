@@ -1,7 +1,18 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EvaluationPage } from "../EvaluationPage";
+import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "../store";
+import { EvaluationContainer } from "../pages/Evaluation/Container";
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <EvaluationContainer />
+    </MemoryRouter>,
+  );
+}
 
 const RUNTIME_RESPONSE = {
   status: { code: 200, message: "OK" },
@@ -16,7 +27,46 @@ const RUNTIME_RESPONSE = {
 const RUNS_RESPONSE = {
   status: { code: 200, message: "OK" },
   data: {
-    runs: [],
+    runs: [
+      {
+        run_id: "example_qt1_seed_1_3_5",
+        path: "/tmp/experiments/example_qt1_seed_1_3_5",
+        has_summary: false,
+        judge_failures: [
+          {
+            model: "gpt-4.1",
+            artifact: "qt1_feasible_seed_1.json",
+            artifact_path:
+              "/tmp/experiments/example_qt1_seed_1_3_5/gpt-4.1/qt1_feasible_seed_1.json",
+            details: ["LLM request exhausted 11 attempts: 400 unsupported model"],
+          },
+        ],
+        manifest: { run_id: "example_qt1_seed_1_3_5" },
+        state: { status: "running" },
+        summary: null,
+      },
+    ],
+  },
+  error: null,
+};
+
+const LOGS_RESPONSE = {
+  status: { code: 200, message: "OK" },
+  data: {
+    run_id: "example_qt1_seed_1_3_5",
+    log_path: "/tmp/experiments/example_qt1_seed_1_3_5/dashboard.log",
+    lines: ["[Main] Evaluation started", "[Worker] Step 1 complete"],
+  },
+  error: null,
+};
+
+const START_RESPONSE = {
+  status: { code: 200, message: "OK" },
+  data: {
+    accepted: true,
+    pid: 4242,
+    log_path: "/tmp/experiments/eval_spec.example-dashboard/dashboard.log",
+    mode: "start",
   },
   error: null,
 };
@@ -66,14 +116,44 @@ const PREVIEW_RESPONSE = {
   error: null,
 };
 
-describe("EvaluationPage", () => {
+describe("EvaluationContainer", () => {
   beforeEach(() => {
+    resetDashboardRuntimeStore();
+    useDashboardRuntimeStore.setState({ apiHealthy: true, pollingIntervalMs: 5000 });
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL) => {
         const url = String(input);
         if (url.includes("/api/local/runtime/config")) {
           return new Response(JSON.stringify(RUNTIME_RESPONSE), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (url.includes("/api/local/evaluations/start")) {
+          return new Response(JSON.stringify(START_RESPONSE), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (url.includes("/api/local/evaluations/runs/eval_spec.example-dashboard/logs")) {
+          return new Response(
+            JSON.stringify({
+              ...LOGS_RESPONSE,
+              data: {
+                run_id: "eval_spec.example-dashboard",
+                log_path: "/tmp/experiments/eval_spec.example-dashboard/dashboard.log",
+                lines: ["[Main] Booting dashboard worker"],
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        if (url.includes("/api/local/evaluations/runs/example_qt1_seed_1_3_5/logs")) {
+          return new Response(JSON.stringify(LOGS_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
@@ -146,17 +226,49 @@ describe("EvaluationPage", () => {
       }),
     );
 
-    render(<EvaluationPage />);
+    renderPage();
 
     expect(await screen.findByText("No runs detected yet.")).toBeInTheDocument();
   });
 
   it("shows spec preview details in the right rail", async () => {
-    render(<EvaluationPage />);
+    renderPage();
 
     expect(await screen.findByText("Spec preview")).toBeInTheDocument();
-    expect(await screen.findByText("example_qt1_seed_1_3_5")).toBeInTheDocument();
+    expect((await screen.findAllByText("example_qt1_seed_1_3_5")).length).toBeGreaterThan(0);
     expect(await screen.findByText(/openai\/gpt-4\.1/i)).toBeInTheDocument();
     expect((await screen.findAllByText(/simuhome-eval-spec-v1/i)).length).toBeGreaterThan(0);
+  });
+
+  it("shows a live dashboard log tail for the selected run", async () => {
+    renderPage();
+
+    expect(await screen.findByText("/tmp/experiments/example_qt1_seed_1_3_5/dashboard.log")).toBeInTheDocument();
+    const tailBlock = await screen.findByText((content, node) => {
+      return node?.textContent === "[Main] Evaluation started\n[Worker] Step 1 complete";
+    });
+    expect(tailBlock).toBeInTheDocument();
+  });
+
+  it("shows judge failure details for the selected run", async () => {
+    renderPage();
+
+    expect(await screen.findByText("Judge failures")).toBeInTheDocument();
+    expect(await screen.findByText(/gpt-4\.1 \/ qt1_feasible_seed_1\.json/i)).toBeInTheDocument();
+    expect(await screen.findByText(/400 unsupported model/i)).toBeInTheDocument();
+  });
+
+  it("switches the log tail to the started dashboard run immediately after start", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Start evaluation" }));
+
+    expect(await screen.findByText("Started evaluation process 4242.")).toBeInTheDocument();
+    expect((await screen.findAllByText("eval_spec.example-dashboard")).length).toBeGreaterThan(0);
+    expect(
+      await screen.findByText("/tmp/experiments/eval_spec.example-dashboard/dashboard.log"),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("[Main] Booting dashboard worker")).toBeInTheDocument();
   });
 });

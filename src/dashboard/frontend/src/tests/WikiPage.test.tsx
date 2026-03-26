@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { WikiPage } from "../WikiPage";
+import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "../store";
 
 const DEVICE_TYPES_RESPONSE = {
   status: { code: 200, message: "OK" },
@@ -105,12 +105,13 @@ const CLUSTER_DOC_RESPONSE = {
   error: null,
 };
 
-function renderWiki(initialEntry: string) {
+async function renderWiki(initialEntry: string) {
+  const { WikiContainer } = await import("../pages/Wiki/Container");
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
-        <Route path="/wiki" element={<WikiPage />} />
-        <Route path="/wiki/:deviceType" element={<WikiPage />} />
+        <Route path="/wiki" element={<WikiContainer />} />
+        <Route path="/wiki/:deviceType" element={<WikiContainer />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -118,6 +119,8 @@ function renderWiki(initialEntry: string) {
 
 describe("WikiPage", () => {
   beforeEach(() => {
+    resetDashboardRuntimeStore();
+    useDashboardRuntimeStore.setState({ apiHealthy: true, pollingIntervalMs: 5000 });
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL) => {
@@ -159,8 +162,13 @@ describe("WikiPage", () => {
     vi.unstubAllGlobals();
   });
 
+  it("exports a wiki container for route composition", async () => {
+    const { WikiContainer } = await import("../pages/Wiki/Container");
+    expect(WikiContainer).toBeTypeOf("function");
+  });
+
   it("renders the wiki index as a linked device directory", async () => {
-    renderWiki("/wiki");
+    await renderWiki("/wiki");
 
     expect(await screen.findByRole("heading", { name: "Wiki" })).toBeInTheDocument();
     const deviceLink = await screen.findByRole("link", { name: /on_off_light/i });
@@ -170,7 +178,7 @@ describe("WikiPage", () => {
 
   it("navigates to a dedicated device route when a device is clicked", async () => {
     const user = userEvent.setup();
-    renderWiki("/wiki");
+    await renderWiki("/wiki");
 
     await user.click(await screen.findByRole("link", { name: /on_off_light/i }));
 
@@ -182,7 +190,7 @@ describe("WikiPage", () => {
   });
 
   it("renders a device detail route directly", async () => {
-    renderWiki("/wiki/on_off_light");
+    await renderWiki("/wiki/on_off_light");
 
     expect(
       (await screen.findAllByRole("link", { name: /back to device list/i })).length,

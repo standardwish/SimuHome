@@ -281,28 +281,34 @@ def _discover_target_episode_filenames(selection: EpisodeSelection) -> list[str]
     )
 
 
-def _classify_episode_result(path: Path) -> str:
+def _inspect_episode_result(path: Path) -> tuple[str, str | None]:
     try:
         payload = _json_read(path)
-    except Exception:
-        return "invalid"
+    except Exception as exc:
+        return "invalid", f"json_error:{type(exc).__name__}"
 
     evaluation_result = payload.get("evaluation_result")
     if not isinstance(evaluation_result, dict):
-        return "invalid"
+        return "invalid", "evaluation_result_missing"
 
     error_type = evaluation_result.get("error_type")
     if isinstance(error_type, str) and error_type.strip():
-        return "runtime_error"
+        detail = evaluation_result.get("detail")
+        if isinstance(detail, str) and detail.strip():
+            return "runtime_error", detail.strip()
+        return "runtime_error", error_type.strip()
 
     score = evaluation_result.get("score")
     if isinstance(score, (int, float)) and float(score) < 0:
-        return "runtime_error"
+        detail = evaluation_result.get("detail")
+        if isinstance(detail, str) and detail.strip():
+            return "runtime_error", detail.strip()
+        return "runtime_error", "negative_score_runtime_error"
 
     if not isinstance(score, (int, float)):
-        return "invalid"
+        return "invalid", "score_missing_or_invalid"
 
-    return "success"
+    return "success", None
 
 
 def _collect_episode_progress_for_model(
@@ -326,16 +332,25 @@ def _collect_episode_progress_for_model(
 
     observed_files = len(existing_paths)
     total = len(target_filenames)
-    file_statuses: list[tuple[Path, str]] = [
-        (path, _classify_episode_result(path)) for path in existing_paths
+    file_statuses: list[tuple[Path, str, str | None]] = [
+        (path, *_inspect_episode_result(path)) for path in existing_paths
     ]
-    successful_paths = [path for path, status in file_statuses if status == "success"]
+    successful_paths = [
+        path for path, status, _detail in file_statuses if status == "success"
+    ]
     completed = len(successful_paths)
-    pending = max(total - completed, 0)
+    pending = max(total - len(file_statuses), 0)
     runtime_errors = sum(
-        1 for _path, status in file_statuses if status == "runtime_error"
+        1 for _path, status, _detail in file_statuses if status == "runtime_error"
     )
-    invalid_files = sum(1 for _path, status in file_statuses if status == "invalid")
+    invalid_files = sum(
+        1 for _path, status, _detail in file_statuses if status == "invalid"
+    )
+    runtime_error_details = [
+        detail
+        for _path, status, detail in file_statuses
+        if status == "runtime_error" and detail
+    ]
 
     completion_rate = 0.0
     if total > 0:
@@ -355,6 +370,8 @@ def _collect_episode_progress_for_model(
 
     if successful_paths:
         payload["last_completed_file"] = successful_paths[-1].name
+    if runtime_error_details:
+        payload["last_runtime_error"] = runtime_error_details[-1]
 
     return payload
 
@@ -385,13 +402,30 @@ def _reconcile_episode_progress_in_state(
 
         total = progress.get("total")
         pending = progress.get("pending")
+        runtime_errors = progress.get("runtime_errors")
+        invalid_files = progress.get("invalid_files")
         if isinstance(total, int) and isinstance(pending, int):
             if total > 0 and pending == 0:
-                entry["status"] = "success"
-                if entry.get("returncode") is None:
-                    entry["returncode"] = 0
-                if not isinstance(entry.get("error"), str):
-                    entry["error"] = ""
+                if (
+                    isinstance(runtime_errors, int)
+                    and runtime_errors > 0
+                    or isinstance(invalid_files, int)
+                    and invalid_files > 0
+                ):
+                    entry["status"] = "failed"
+                    last_runtime_error = progress.get("last_runtime_error")
+                    if isinstance(last_runtime_error, str) and last_runtime_error.strip():
+                        entry["error"] = last_runtime_error.strip()
+                    elif not isinstance(entry.get("error"), str) or not str(
+                        entry.get("error", "")
+                    ).strip():
+                        entry["error"] = "evaluation artifacts contain runtime errors"
+                else:
+                    entry["status"] = "success"
+                    if entry.get("returncode") is None:
+                        entry["returncode"] = 0
+                    if not isinstance(entry.get("error"), str):
+                        entry["error"] = ""
             elif str(entry.get("status", "")).lower() == "success" and pending > 0:
                 entry["status"] = "pending"
 
@@ -1193,10 +1227,26 @@ def _update_state(
 
 
 def _build_summary(
-    resolved: ResolvedRun, results: list[EvaluationResult]
+    resolved: ResolvedRun,
+    results: list[EvaluationResult],
+    state: dict[str, object],
 ) -> dict[str, object]:
-    success_count = sum(1 for result in results if result["success"])
-    failed = [result for result in results if not result["success"]]
+    model_status = _require_mapping(state.get("models", {}), "state.models")
+    normalized_results: list[EvaluationResult] = []
+    for result in results:
+        updated = dict(result)
+        status_entry = model_status.get(result["safe_model"])
+        if isinstance(status_entry, dict):
+            status_value = str(status_entry.get("status", "")).lower()
+            if status_value not in {"", "success", "pending"}:
+                updated["success"] = False
+                state_error = status_entry.get("error")
+                if isinstance(state_error, str) and state_error.strip():
+                    updated["error"] = state_error.strip()
+        normalized_results.append(updated)
+
+    success_count = sum(1 for result in normalized_results if result["success"])
+    failed = [result for result in normalized_results if not result["success"]]
 
     return {
         "run_id": resolved["run_id"],
@@ -1208,11 +1258,29 @@ def _build_summary(
             "failed": len(failed),
         },
         "successful_models": [
-            result["original_model"] for result in results if result["success"]
+            result["original_model"] for result in normalized_results if result["success"]
         ],
         "failed_models": [result["original_model"] for result in failed],
-        "results": results,
+        "results": normalized_results,
     }
+
+
+def _log_failed_models(summary: dict[str, object], log: Any) -> None:
+    raw_results = summary.get("results", [])
+    if not isinstance(raw_results, list):
+        return
+
+    for result in raw_results:
+        if not isinstance(result, dict):
+            continue
+        if bool(result.get("success")):
+            continue
+
+        model_name = str(result.get("original_model") or "unknown-model")
+        error_text = str(result.get("error") or "").strip()
+        phase_text = str(result.get("phase") or "unknown-phase").strip()
+        detail = error_text or f"{phase_text} failed"
+        log.error("[Main] Failure detail: %s (%s)", model_name, detail)
 
 
 def _run_cli(*, spec: str | None, resume: str | None) -> int:
@@ -1299,7 +1367,7 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
             logger.error("[Main] Startup failure detected and allow_partial_start is false.")
             state = _update_state(state, final_results)
             _json_write(state_path, state)
-            summary = _build_summary(resolved, final_results)
+            summary = _build_summary(resolved, final_results, state)
             _json_write(run_dir / SUMMARY_FILE, summary)
             return 1
 
@@ -1307,7 +1375,7 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
             logger.error("[Main] No simulator reached healthy state.")
             state = _update_state(state, final_results)
             _json_write(state_path, state)
-            summary = _build_summary(resolved, final_results)
+            summary = _build_summary(resolved, final_results, state)
             _json_write(run_dir / SUMMARY_FILE, summary)
             return 1
 
@@ -1426,13 +1494,14 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
     state = _reconcile_episode_progress_in_state(resolved, state, run_dir)
     _json_write(state_path, state)
 
-    summary = _build_summary(resolved, final_results)
+    summary = _build_summary(resolved, final_results, state)
     _json_write(run_dir / SUMMARY_FILE, summary)
 
     summary_totals = _require_mapping(summary.get("totals", {}), "summary.totals")
     success_count = _to_int(summary_totals.get("success", 0), "summary.totals.success")
     failed_count = _to_int(summary_totals.get("failed", 0), "summary.totals.failed")
     logger.info("[Main] Completed: %s succeeded, %s failed", success_count, failed_count)
+    _log_failed_models(summary, logger)
 
     if failed_count > 0:
         return 1

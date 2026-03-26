@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from src.agents.providers import LLMProvider
 from src.agents.types import ChatMessage
@@ -120,7 +120,9 @@ def read_device_attr(state: Dict[str, Any], device_id: str, attribute: str) -> A
     return None
 
 
-def single_judge_call(judge_llm: LLMProvider, system: str, user: str) -> str:
+def single_judge_call(
+    judge_llm: LLMProvider, system: str, user: str
+) -> Tuple[str, str | None]:
     try:
         out = judge_llm.generate(
             [
@@ -129,9 +131,10 @@ def single_judge_call(judge_llm: LLMProvider, system: str, user: str) -> str:
             ]
         )
         letter = (out or "").strip().upper()[:1]
-        return "A" if letter == "A" else "B"
-    except Exception:
-        return "Error"
+        return ("A" if letter == "A" else "B"), None
+    except Exception as exc:
+        detail = str(exc).strip() or exc.__class__.__name__
+        return "Error", detail
 
 
 def run_judge_panel(
@@ -149,21 +152,30 @@ def run_judge_panel(
         }
 
     judge_letters: List[str] = []
+    judge_error_details: List[str] = []
     try:
         with ThreadPoolExecutor(max_workers=len(judge_llms)) as executor:
-            judge_letters = list(
+            judge_results = list(
                 executor.map(
                     lambda judge: single_judge_call(judge, system, user), judge_llms
                 )
             )
+            judge_letters = [letter for letter, _ in judge_results]
+            judge_error_details = [
+                detail
+                for letter, detail in judge_results
+                if letter == "Error" and detail is not None
+            ]
     except Exception:
         judge_letters = ["Error"] * len(judge_llms)
+        judge_error_details = ["Judge panel execution failed"] * len(judge_llms)
 
     if judge_letters and "Error" in judge_letters:
         return {
             "score": -1,
             "error_type": "Judge Error",
             "judge": judge_letters,
+            "judge_error_details": judge_error_details,
         }
 
     counter = Counter(judge_letters)
@@ -175,12 +187,14 @@ def run_judge_panel(
             "score": 1,
             "error_type": None,
             "judge": judge_letters,
+            "judge_error_details": [],
         }
 
     return {
         "score": 0,
         "error_type": failure_error_type,
         "judge": judge_letters,
+        "judge_error_details": [],
     }
 
 

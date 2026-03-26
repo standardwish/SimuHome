@@ -1,9 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "../App";
+import { resetDashboardRuntimeStore } from "../store";
 
 describe("App", () => {
+  beforeEach(() => {
+    resetDashboardRuntimeStore();
+  });
+
   it("renders the simulator workspace by default", async () => {
     render(
       <MemoryRouter initialEntries={["/simulator"]}>

@@ -89,6 +89,35 @@ export type HomeState = {
   >;
 };
 
+export type DeviceStructure = {
+  device_id: string;
+  device_type: string;
+  endpoints: Record<
+    string,
+    {
+      clusters: Record<
+        string,
+        {
+          cluster_id: string;
+          attributes: Record<
+            string,
+            {
+              value: unknown;
+              type: string;
+              readonly: boolean;
+              enum_name?: string;
+              enum_values?: Record<string, string | number>;
+            }
+          >;
+          commands: string[];
+        }
+      >;
+    }
+  >;
+};
+
+export type DeviceAttributes = Record<string, unknown>;
+
 export type WorkflowList = Array<{
   workflow_id: string;
   description: string | null;
@@ -108,9 +137,65 @@ export type EvaluationRun = {
   run_id: string;
   path: string;
   has_summary: boolean;
+  judge_failures: Array<{
+    model: string;
+    artifact: string;
+    artifact_path: string;
+    details: string[];
+  }>;
   manifest: Record<string, unknown> | null;
   state: Record<string, unknown> | null;
   summary: Record<string, unknown> | null;
+};
+
+export type EvaluationRunDetail = {
+  run_id: string;
+  path: string;
+  summary: {
+    total: number;
+    success: number;
+    failed: number;
+    pending: number;
+  };
+  models: Array<{
+    model: string;
+    path: string;
+    artifacts: Array<{
+      file_name: string;
+      file_path: string;
+      query_type: string | null;
+      case: string | null;
+      seed: number | string | null;
+      duration: number | null;
+      score: number | null;
+      error_type: string | null;
+      final_answer: string | null;
+      required_actions: {
+        total: number;
+        invoked: number;
+      };
+      judge: string[];
+      judge_error_details: string[];
+      tools_invoked: Array<{
+        tool: string;
+        ok: boolean;
+        status_code: number | null;
+        error_type: string | null;
+      }>;
+      steps: Array<{
+        step: number | null;
+        thought: string | null;
+        action: string | null;
+        action_input: unknown;
+      }>;
+    }>;
+  }>;
+};
+
+export type EvaluationRunLogs = {
+  run_id: string;
+  log_path: string;
+  lines: string[];
 };
 
 export type EvaluationSpecPreview = {
@@ -192,50 +277,67 @@ export async function requestApi<T>(
 
 export function useDashboardQuery<T>(
   path: string,
-  options?: { intervalMs?: number; enabled?: boolean },
+  options?: { intervalMs?: number; enabled?: boolean; isEqual?: (left: T, right: T) => boolean },
 ) {
   const enabled = options?.enabled ?? true;
   const intervalMs = options?.intervalMs ?? 0;
+  const isEqual = options?.isEqual;
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(enabled);
   const mountedRef = useRef(true);
+  const dataRef = useRef<T | null>(null);
+  const errorRef = useRef<string | null>(null);
 
-  async function load() {
-    if (!enabled) {
+  async function load(force = false, background = false) {
+    if (!force && !enabled) {
       return;
     }
+    const shouldShowLoading = !background && (force || dataRef.current === null);
     try {
-      if (mountedRef.current) {
+      if (mountedRef.current && shouldShowLoading) {
         setLoading(true);
       }
       const response = await requestApi<T>(path);
       if (!mountedRef.current) {
         return;
       }
-      setData(response.data);
-      setError(null);
+      const unchanged = dataRef.current !== null && Boolean(isEqual?.(dataRef.current, response.data));
+      if (!unchanged) {
+        dataRef.current = response.data;
+        setData(response.data);
+      }
+      if (errorRef.current !== null) {
+        errorRef.current = null;
+        setError(null);
+      }
     } catch (err) {
       if (mountedRef.current) {
-        setError(err instanceof Error ? err.message : "Request failed");
+        const nextError = err instanceof Error ? err.message : "Request failed";
+        errorRef.current = nextError;
+        setError(nextError);
       }
     } finally {
-      if (mountedRef.current) {
-        setLoading(false);
+      if (mountedRef.current && shouldShowLoading) {
+        setLoading((current) => (current ? false : current));
       }
     }
   }
 
   useEffect(() => {
     mountedRef.current = true;
-    void load();
+    if (enabled) {
+      void load();
+    } else if (mountedRef.current) {
+      setLoading(false);
+    }
     if (!enabled || intervalMs <= 0) {
       return () => {
         mountedRef.current = false;
       };
     }
     const timer = window.setInterval(() => {
-      void load();
+      void load(false, true);
     }, intervalMs);
     return () => {
       mountedRef.current = false;
@@ -244,7 +346,7 @@ export function useDashboardQuery<T>(
   }, [enabled, intervalMs, path]);
 
   return useMemo(
-    () => ({ data, error, loading, refresh: load }),
+    () => ({ data, error, loading, refresh: () => load(true) }),
     [data, error, loading],
   );
 }
