@@ -34,3 +34,5 @@ src/dashboard/frontend/coverage/
 src/dashboard/frontend/*.tsbuildinfo
 src/dashboard/frontend/vite.config.js
 src/dashboard/frontend/vite.config.d.ts
+
+experiments/
