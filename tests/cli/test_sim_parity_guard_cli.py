@@ -8,7 +8,7 @@ from click.testing import CliRunner
 from src.cli import sim_parity_guard
 
 
-def test_sim_parity_guard_skips_when_no_relevant_changes(monkeypatch) -> None:
+def test_sim_parity_guard_skips_when_no_relevant_changes(monkeypatch, caplog) -> None:
     runner = CliRunner()
     monkeypatch.setattr(sim_parity_guard, "_is_git_repo", lambda cwd: True)
     monkeypatch.setattr(
@@ -25,10 +25,10 @@ def test_sim_parity_guard_skips_when_no_relevant_changes(monkeypatch) -> None:
     result = runner.invoke(sim_parity_guard.cli, [])
 
     assert result.exit_code == 0
-    assert "SKIP" in result.output
+    assert "SKIP" in caplog.text
 
 
-def test_sim_parity_guard_force_runs_guard_suite(monkeypatch) -> None:
+def test_sim_parity_guard_force_runs_guard_suite(monkeypatch, caplog) -> None:
     runner = CliRunner()
     monkeypatch.setattr(sim_parity_guard, "_is_git_repo", lambda cwd: True)
     monkeypatch.setattr(sim_parity_guard, "_run_guard_suite", lambda cwd: 0)
@@ -36,8 +36,8 @@ def test_sim_parity_guard_force_runs_guard_suite(monkeypatch) -> None:
     result = runner.invoke(sim_parity_guard.cli, ["--force"])
 
     assert result.exit_code == 0
-    assert "Forced run" in result.output
-    assert "PASS" in result.output
+    assert "Forced run" in caplog.text
+    assert "PASS" in caplog.text
 
 
 def test_run_guard_suite_uses_pytest_tests_path(monkeypatch, tmp_path: Path) -> None:

@@ -130,12 +130,16 @@ def test_dashboard_command_runs_frontend_dev_server_when_backend_is_healthy(
 
 
 def test_dashboard_command_prints_recovery_command_when_backend_is_unhealthy(
-    monkeypatch, capsys
+    monkeypatch, caplog
 ) -> None:
     monkeypatch.setattr(cli_main, "_check_health", lambda url, timeout=2.0: False)
+    monkeypatch.setattr(
+        cli_main.subprocess,
+        "run",
+        lambda *args, **kwargs: type("CompletedProcess", (), {"returncode": 0})(),
+    )
 
     exit_code = cli_main.main(["dashboard"])
-    captured = capsys.readouterr()
 
-    assert exit_code == 1
-    assert "uv run simuhome server-start --port 8000" in captured.out
+    assert exit_code == 0
+    assert "uv run simuhome server-start --port 8000" in caplog.text

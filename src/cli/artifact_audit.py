@@ -11,6 +11,10 @@ from typing import Any
 import click
 
 from src.cli.arg_utils import parse_integer_spec
+from src.logging_config import configure_logging, get_logger
+
+
+logger = get_logger(__name__)
 
 
 ARTIFACT_AUDIT_SCHEMA = "simuhome-artifact-audit-v1"
@@ -744,9 +748,10 @@ def cli(
     rerun_plan: str,
     strict: bool,
 ) -> int:
+    configure_logging()
     run_dir = run_dir.expanduser().resolve()
     if not run_dir.exists() or not run_dir.is_dir():
-        print(f"[artifact-audit] ERROR: run directory not found: {run_dir}")
+        logger.error("[artifact-audit] ERROR: run directory not found: %s", run_dir)
         return 1
 
     try:
@@ -755,7 +760,7 @@ def cli(
             run_type=run_type,
         )
     except Exception as exc:  # pragma: no cover
-        print(f"[artifact-audit] ERROR: {exc}")
+        logger.error("[artifact-audit] ERROR: %s", exc)
         return 1
 
     report_path = (
@@ -772,11 +777,14 @@ def cli(
 
     failures = not _build_overall_status(report_payload)
     status_word = "PASS" if not failures else "FAIL"
-    print(
-        f"[artifact-audit] {status_word}: {report_payload['run_dir']} ({report_payload['summary']['counts']})"
+    logger.info(
+        "[artifact-audit] %s: %s (%s)",
+        status_word,
+        report_payload["run_dir"],
+        report_payload["summary"]["counts"],
     )
-    print(f"[artifact-audit] report -> {report_path}")
-    print(f"[artifact-audit] rerun_plan -> {rerun_plan_path}")
+    logger.info("[artifact-audit] report -> %s", report_path)
+    logger.info("[artifact-audit] rerun_plan -> %s", rerun_plan_path)
 
     if failures and strict:
         return 2
@@ -784,6 +792,7 @@ def cli(
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging()
     result = cli.main(args=argv, prog_name="artifact-audit", standalone_mode=False)
     return 0 if result is None else int(result)
 

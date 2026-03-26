@@ -6,6 +6,11 @@ import time
 
 import click
 
+from src.logging_config import configure_logging, get_logger
+
+
+logger = get_logger(__name__)
+
 
 def get_pids(port: int) -> list[str]:
     cmd = ["lsof", "-ti", f"tcp:{port}"]
@@ -19,20 +24,22 @@ def stop_server_on_port(port: int) -> None:
         if not pids:
             return
 
-        print(f"[stop_servers] Stopping port {port} (PIDs: {', '.join(pids)})")
+        logger.info("[stop_servers] Stopping port %s (PIDs: %s)", port, ", ".join(pids))
         subprocess.run(["kill"] + pids, check=False)
 
         time.sleep(1)
 
         remaining_pids = get_pids(port)
         if remaining_pids:
-            print(
-                f"[stop_servers] Force killing port {port} (PIDs: {', '.join(remaining_pids)})"
+            logger.warning(
+                "[stop_servers] Force killing port %s (PIDs: %s)",
+                port,
+                ", ".join(remaining_pids),
             )
             subprocess.run(["kill", "-9"] + remaining_pids, check=False)
 
     except Exception as e:
-        print(f"[stop_servers] Error on port {port}: {e}")
+        logger.error("[stop_servers] Error on port %s: %s", port, e)
 
 
 def _resolve_ports(explicit_ports: tuple[int, ...]) -> list[int]:
@@ -49,17 +56,19 @@ def _resolve_ports(explicit_ports: tuple[int, ...]) -> list[int]:
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--port", "ports", type=int, multiple=True, help="Port(s) to stop.")
 def cli(ports: tuple[int, ...]) -> int:
+    configure_logging()
     resolved_ports = _resolve_ports(ports)
     if not resolved_ports:
         return 0
 
-    print(f"[stop_servers] Target ports: {resolved_ports}")
+    logger.info("[stop_servers] Target ports: %s", resolved_ports)
     for port in resolved_ports:
         stop_server_on_port(port)
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging()
     result = cli.main(args=argv, prog_name="stop-servers", standalone_mode=False)
     return 0 if result is None else int(result)
 

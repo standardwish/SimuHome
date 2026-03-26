@@ -1,11 +1,11 @@
 """API routes for the simulator service."""
 
-import logging
 import threading
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException
 
+from src.logging_config import get_logger
 from src.simulator.api.responses import ResponseBuilder
 from src.simulator.domain.result import Result, ResultBuilder
 from src.simulator.application.device_factory import (
@@ -28,7 +28,7 @@ from .schemas import (
     WriteAttributeRequest,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api")
 home = Home(base_time="2025-08-23 00:00:00")

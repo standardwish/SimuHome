@@ -7,6 +7,11 @@ from typing import List
 
 import click
 
+from src.logging_config import configure_logging, get_logger
+
+
+logger = get_logger(__name__)
+
 
 RELEVANT_PATH_PREFIXES = (
     "src/simulator/domain/aggregators/",
@@ -106,6 +111,7 @@ def _run_guard_suite(cwd: Path) -> int:
     help="Optional git base reference to include in changed-file detection.",
 )
 def cli(force: bool, staged_only: bool, base_ref: str | None) -> int:
+    configure_logging()
     repo_root = Path(__file__).resolve().parents[2]
     in_git_repo = _is_git_repo(repo_root)
 
@@ -117,26 +123,27 @@ def cli(force: bool, staged_only: bool, base_ref: str | None) -> int:
         )
         relevant = [path for path in changed_files if _is_relevant_change(path)]
         if not relevant:
-            print("[sim-parity-guard] SKIP: no simulator/runtime core changes detected")
+            logger.info("[sim-parity-guard] SKIP: no simulator/runtime core changes detected")
             return 0
 
-        print("[sim-parity-guard] Relevant changes detected:")
+        logger.info("[sim-parity-guard] Relevant changes detected:")
         for path in relevant:
-            print(f"  - {path}")
+            logger.info("  - %s", path)
     elif not in_git_repo:
-        print("[sim-parity-guard] Git metadata unavailable; running guard suite")
+        logger.warning("[sim-parity-guard] Git metadata unavailable; running guard suite")
     else:
-        print("[sim-parity-guard] Forced run")
+        logger.info("[sim-parity-guard] Forced run")
 
     code = _run_guard_suite(repo_root)
     if code == 0:
-        print("[sim-parity-guard] PASS")
+        logger.info("[sim-parity-guard] PASS")
     else:
-        print("[sim-parity-guard] FAIL")
+        logger.error("[sim-parity-guard] FAIL")
     return code
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging()
     result = cli.main(args=argv, prog_name="sim-parity-guard", standalone_mode=False)
     return 0 if result is None else int(result)
 
