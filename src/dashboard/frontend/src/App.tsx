@@ -4,6 +4,8 @@ import { Layout } from "@/Layout";
 import { ApiExplorerContainer } from "@/pages/ApiExplorer/Container";
 import { EvaluationContainer } from "@/pages/Evaluation/Container";
 import { EvaluationRunDetailContainer } from "@/pages/EvaluationRunDetail/Container";
+import { GenerationContainer } from "@/pages/Generation/Container";
+import { GenerationRunDetailContainer } from "@/pages/GenerationRunDetail/Container";
 import { SimulatorContainer } from "@/pages/Simulator/Container";
 import { WikiContainer } from "@/pages/Wiki/Container";
 
@@ -15,6 +17,8 @@ export function App() {
         <Route path="/simulator" element={<SimulatorContainer />} />
         <Route path="/evaluation" element={<EvaluationContainer />} />
         <Route path="/evaluation/:runId" element={<EvaluationRunDetailContainer />} />
+        <Route path="/generation" element={<GenerationContainer />} />
+        <Route path="/generation/:runId" element={<GenerationRunDetailContainer />} />
         <Route path="/api-explorer" element={<ApiExplorerContainer />} />
         <Route path="/wiki" element={<WikiContainer />} />
         <Route path="/wiki/aggregators" element={<WikiContainer />} />

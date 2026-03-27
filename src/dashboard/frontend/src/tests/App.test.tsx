@@ -29,6 +29,7 @@ describe("App", () => {
     expect(screen.getByText("GitHub")).toBeInTheDocument();
     expect(screen.getByText("Paper (Arxiv)")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Evaluation" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Generation" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "API Explorer" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Wiki" })).toBeInTheDocument();
     expect(screen.queryByText("Active section")).not.toBeInTheDocument();

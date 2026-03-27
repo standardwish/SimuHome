@@ -443,6 +443,232 @@ def test_local_evaluation_spec_preview_reads_yaml_summary(tmp_path: Path) -> Non
     assert data["summary"]["models"][0]["model"] == "openai/gpt-4.1"
 
 
+def test_local_runtime_config_includes_generation_directory_and_example(
+    monkeypatch, tmp_path: Path
+) -> None:
+    experiments_dir = tmp_path / "experiments"
+    generation_dir = tmp_path / "generated"
+    experiments_dir.mkdir()
+    generation_dir.mkdir()
+    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(experiments_dir))
+    monkeypatch.setenv("SIMUHOME_GENERATION_RUNS_DIR", str(generation_dir))
+
+    client = TestClient(create_app())
+
+    response = client.get("/api/local/runtime/config")
+
+    data = _unwrap_ok(response)
+    assert data["generation_runs_dir"] == str(generation_dir)
+    assert data["generation_exists"] is True
+    assert data["gen_spec_example"].endswith("gen_spec.example.yaml")
+
+
+def test_local_generation_runs_lists_runs_from_generation_directory(
+    monkeypatch, tmp_path: Path
+) -> None:
+    generation_dir = tmp_path / "generated"
+    run_dir = generation_dir / "demo-generation"
+    run_dir.mkdir(parents=True)
+    (run_dir / "manifest.json").write_text(
+        json.dumps({"run_id": "demo-generation", "schema": "simuhome-gen-spec-v1"}),
+        encoding="utf-8",
+    )
+    (run_dir / "run_state.json").write_text(
+        json.dumps(
+            {
+                "generation": {"total": 3, "completed": 1, "failed": 1, "pending": 1},
+                "seeds": {
+                    "1": {"status": "success", "file": "episodes/qt1_feasible_seed_1.json"},
+                    "2": {"status": "failed", "error": "model timeout"},
+                    "3": {"status": "pending"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run_summary.json").write_text(
+        json.dumps(
+            {
+                "schema": "simuhome-gen-spec-v1",
+                "run_id": "demo-generation",
+                "output_dir": str(run_dir / "episodes"),
+                "total": 3,
+                "success": 1,
+                "failed": 1,
+                "pending": 1,
+                "files": ["episodes/qt1_feasible_seed_1.json"],
+                "failed_items": [{"seed": 2, "error": "model timeout"}],
+                "pending_seeds": [3],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SIMUHOME_GENERATION_RUNS_DIR", str(generation_dir))
+
+    client = TestClient(create_app())
+
+    response = client.get("/api/local/generations/runs")
+
+    data = _unwrap_ok(response)
+    assert data["runs"][0]["run_id"] == "demo-generation"
+    assert data["runs"][0]["has_summary"] is True
+    assert data["runs"][0]["summary"]["success"] == 1
+
+
+def test_local_generation_run_detail_exposes_seed_status_and_artifact_preview(
+    monkeypatch, tmp_path: Path
+) -> None:
+    generation_dir = tmp_path / "generated"
+    run_dir = generation_dir / "demo-generation"
+    episodes_dir = run_dir / "episodes"
+    episodes_dir.mkdir(parents=True)
+    (run_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": "demo-generation",
+                "schema": "simuhome-gen-spec-v1",
+                "resolved": {
+                    "episode": {"qt": "qt1", "case": "feasible", "seed": ["1", "2", "3"]},
+                    "llm": {"model": "gpt-5-mini"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run_state.json").write_text(
+        json.dumps(
+            {
+                "generation": {"qt": "qt1", "case": "feasible", "total": 3},
+                "seeds": {
+                    "1": {
+                        "status": "success",
+                        "file": "episodes/qt1_feasible_seed_1.json",
+                        "error": None,
+                    },
+                    "2": {"status": "failed", "file": None, "error": "model timeout"},
+                    "3": {"status": "pending", "file": None, "error": None},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run_summary.json").write_text(
+        json.dumps(
+            {
+                "schema": "simuhome-gen-spec-v1",
+                "run_id": "demo-generation",
+                "output_dir": str(episodes_dir),
+                "total": 3,
+                "success": 1,
+                "failed": 1,
+                "pending": 1,
+                "files": ["episodes/qt1_feasible_seed_1.json"],
+                "failed_items": [{"seed": 2, "error": "model timeout"}],
+                "pending_seeds": [3],
+            }
+        ),
+        encoding="utf-8",
+    )
+    episode_payload = {
+        "query_type": "qt1",
+        "query": "Is the utility room bright?",
+        "seed": 1,
+        "messages": [{"role": "user", "content": "Question"}],
+    }
+    (episodes_dir / "qt1_feasible_seed_1.json").write_text(
+        json.dumps(episode_payload),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SIMUHOME_GENERATION_RUNS_DIR", str(generation_dir))
+
+    client = TestClient(create_app())
+
+    response = client.get("/api/local/generations/runs/demo-generation/detail")
+
+    data = _unwrap_ok(response)
+    assert data["run_id"] == "demo-generation"
+    assert data["summary"]["success"] == 1
+    assert data["seeds"][0]["seed"] == 1
+    assert data["seeds"][0]["status"] == "success"
+    assert data["seeds"][1]["error"] == "model timeout"
+    assert data["artifacts"][0]["file_name"] == "qt1_feasible_seed_1.json"
+    assert data["artifacts"][0]["query"] == "Is the utility room bright?"
+    assert data["artifacts"][0]["raw_payload"]["messages"][0]["role"] == "user"
+
+
+def test_local_generation_start_spawns_episode_generator_process(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyProcess:
+        pid = 9876
+
+    def fake_popen(command, **kwargs):
+        captured["command"] = command
+        captured["stdout_mode"] = kwargs["stdout"].mode
+        return DummyProcess()
+
+    generation_dir = tmp_path / "generated"
+    monkeypatch.setenv("SIMUHOME_GENERATION_RUNS_DIR", str(generation_dir))
+    monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
+
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/local/generations/start",
+        json={"spec_path": "gen_spec.example.yaml"},
+    )
+
+    data = _unwrap_ok(response)
+    assert data["accepted"] is True
+    assert data["pid"] == 9876
+    assert captured["command"][-2:] == ["--spec", "gen_spec.example.yaml"]
+    assert captured["stdout_mode"] == "w"
+
+
+def test_local_generation_spec_preview_reads_yaml_summary(tmp_path: Path) -> None:
+    spec_path = tmp_path / "gen_spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "schema: simuhome-gen-spec-v1",
+                "run:",
+                "  id: demo-generation",
+                "  output_root: data/benchmark",
+                "episode:",
+                "  qt: qt4-2",
+                "  case: feasible",
+                "  seed: '1-3'",
+                "  base_date: '2025-08-23'",
+                "  home:",
+                "    room_count: 5",
+                "llm:",
+                "  model: gpt-5-mini",
+                "  api_base: https://openrouter.ai/api/v1",
+                "  api_key: env:OPENROUTER_API_KEY",
+                "  temperature: 1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    client = TestClient(create_app())
+
+    response = client.get(
+        "/api/local/generations/spec-preview",
+        params={"path": str(spec_path)},
+    )
+
+    data = _unwrap_ok(response)
+    assert data["exists"] is True
+    assert data["valid"] is True
+    assert data["summary"]["run_id"] == "demo-generation"
+    assert data["summary"]["selection"]["qt"] == "qt4-2"
+    assert data["summary"]["llm"]["model"] == "gpt-5-mini"
+    assert data["summary"]["home"]["room_count"] == 5
+
+
 def test_dashboard_dev_origin_is_allowed_for_cors() -> None:
     client = TestClient(create_app())
 

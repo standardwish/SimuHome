@@ -18,10 +18,17 @@ from .backend.runtime import (
     get_evaluation_run_detail,
     get_evaluation_run,
     get_evaluation_summary,
+    get_generation_logs,
+    get_generation_run,
+    get_generation_run_detail,
     get_runtime_config,
     list_evaluation_runs,
+    list_generation_runs,
     preview_evaluation_spec,
+    preview_generation_spec,
+    resume_generation,
     resume_evaluation,
+    start_generation,
     start_evaluation,
 )
 from .backend.wiki import (
@@ -154,12 +161,45 @@ def get_local_evaluation_run_logs(run_id: str, lines: int = 200):
     return ResponseBuilder.from_result(Result.ok(get_evaluation_logs(run_id, lines)))
 
 
+@router.get("/local/generations/runs")
+def get_local_generation_runs():
+    return ResponseBuilder.from_result(Result.ok(list_generation_runs()))
+
+
+@router.get("/local/generations/spec-preview")
+def get_local_generation_spec_preview(path: str):
+    return ResponseBuilder.from_result(Result.ok(preview_generation_spec(path)))
+
+
+@router.get("/local/generations/runs/{run_id}")
+def get_local_generation_run(run_id: str):
+    return ResponseBuilder.from_result(Result.ok(get_generation_run(run_id)))
+
+
+@router.get("/local/generations/runs/{run_id}/detail")
+def get_local_generation_run_detail(run_id: str):
+    return ResponseBuilder.from_result(Result.ok(get_generation_run_detail(run_id)))
+
+
+@router.get("/local/generations/runs/{run_id}/logs")
+def get_local_generation_run_logs(run_id: str, lines: int = 200):
+    return ResponseBuilder.from_result(Result.ok(get_generation_logs(run_id, lines)))
+
+
 @router.post("/local/evaluations/start")
 def post_local_evaluation_start(request: EvaluationStartRequest):
     spec_path = Path(request.spec_path)
     if not spec_path.exists():
         raise HTTPException(status_code=404, detail=f"Spec not found: {request.spec_path}")
     return ResponseBuilder.from_result(Result.ok(start_evaluation(request.spec_path)))
+
+
+@router.post("/local/generations/start")
+def post_local_generation_start(request: EvaluationStartRequest):
+    spec_path = Path(request.spec_path)
+    if not spec_path.exists():
+        raise HTTPException(status_code=404, detail=f"Spec not found: {request.spec_path}")
+    return ResponseBuilder.from_result(Result.ok(start_generation(request.spec_path)))
 
 
 @router.post("/local/evaluations/resume")
@@ -170,3 +210,13 @@ def post_local_evaluation_resume(request: EvaluationResumeRequest):
             status_code=404, detail=f"Resume path not found: {request.resume_path}"
         )
     return ResponseBuilder.from_result(Result.ok(resume_evaluation(request.resume_path)))
+
+
+@router.post("/local/generations/resume")
+def post_local_generation_resume(request: EvaluationResumeRequest):
+    resume_path = Path(request.resume_path)
+    if not resume_path.exists():
+        raise HTTPException(
+            status_code=404, detail=f"Resume path not found: {request.resume_path}"
+        )
+    return ResponseBuilder.from_result(Result.ok(resume_generation(request.resume_path)))

@@ -1,4 +1,5 @@
 import ApiRoundedIcon from "@mui/icons-material/ApiRounded";
+import AutoFixHighRoundedIcon from "@mui/icons-material/AutoFixHighRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
@@ -42,6 +43,12 @@ const NAV_ITEMS = [
     path: "/evaluation",
     caption: "Runs and logs",
     icon: <RadarRoundedIcon fontSize="small" />,
+  },
+  {
+    label: "Generation",
+    path: "/generation",
+    caption: "Episode generation runs",
+    icon: <AutoFixHighRoundedIcon fontSize="small" />,
   },
   {
     label: "API Explorer",

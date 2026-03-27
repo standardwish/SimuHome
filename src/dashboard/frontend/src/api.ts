@@ -163,6 +163,9 @@ export type RuntimeConfig = {
   experiments_dir: string;
   exists: boolean;
   eval_spec_example: string;
+  generation_runs_dir: string;
+  generation_exists: boolean;
+  gen_spec_example: string;
 };
 
 export type EvaluationRun = {
@@ -277,6 +280,84 @@ export type EvaluationSpecPreview = {
   } | null;
   raw_text: string | null;
   error: string | null;
+};
+
+export type GenerationRun = {
+  run_id: string;
+  path: string;
+  has_summary: boolean;
+  manifest: Record<string, unknown> | null;
+  state: Record<string, unknown> | null;
+  summary: Record<string, unknown> | null;
+};
+
+export type GenerationRunLogs = {
+  run_id: string;
+  log_path: string;
+  lines: string[];
+};
+
+export type GenerationSpecPreview = {
+  path: string;
+  exists: boolean;
+  valid: boolean;
+  summary: {
+    schema: string | null;
+    run_id: string | null;
+    output_root: string | null;
+    selection: {
+      qt: string | null;
+      case: string | null;
+      seed: string | null;
+    };
+    base_date: string | null;
+    home: {
+      room_count: unknown;
+      devices_per_room: unknown;
+      environment: unknown;
+    };
+    llm: {
+      model: string | null;
+      api_base: string | null;
+      api_key_source: string | null;
+      temperature: unknown;
+    };
+  } | null;
+  raw_text: string | null;
+  error: string | null;
+};
+
+export type GenerationRunDetail = {
+  run_id: string;
+  path: string;
+  manifest: Record<string, unknown> | null;
+  summary: {
+    total: number;
+    success: number;
+    failed: number;
+    pending: number;
+    output_dir: string;
+  };
+  seeds: Array<{
+    seed: number | string;
+    status: string | null;
+    file: string | null;
+    error: string | null;
+    updated_at: string | null;
+  }>;
+  artifacts: Array<{
+    file_name: string;
+    file_path: string;
+    seed: number | string | null;
+    query_type: string | null;
+    query: string | null;
+    raw_payload: Record<string, unknown>;
+  }>;
+  failed_items: Array<{
+    seed: number | string;
+    error: string;
+  }>;
+  pending_seeds: Array<number | string>;
 };
 
 const DEFAULT_API_BASE =

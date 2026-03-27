@@ -14,6 +14,7 @@ function renderLayout(initialEntry = "/simulator", simulatorElement: ReactNode =
         <Route element={<Layout />}>
           <Route path="/simulator" element={simulatorElement} />
           <Route path="/evaluation" element={<div>Evaluation workspace</div>} />
+          <Route path="/generation" element={<div>Generation workspace</div>} />
           <Route path="/api-explorer" element={<div>API explorer workspace</div>} />
           <Route path="/wiki" element={<div>Wiki workspace</div>} />
         </Route>
@@ -268,5 +269,36 @@ describe("Layout", () => {
     expect(
       screen.queryByRole("spinbutton", { name: /polling interval/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows the Generation navigation tab", async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/api/__health__")) {
+        return new Response(
+          JSON.stringify({
+            status: { code: 200, message: "OK" },
+            data: {},
+            error: null,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          status: { code: 404, message: "Not Found" },
+          data: null,
+          error: { type: "not_found", detail: `Unhandled request: ${url}` },
+        }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderLayout("/generation");
+
+    expect(await screen.findByText("API healthy")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Generation" })).toBeInTheDocument();
+    expect(screen.getByText("Generation workspace")).toBeInTheDocument();
   });
 });
