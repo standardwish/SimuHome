@@ -3,7 +3,7 @@ import type {
   EvaluationRunLogs,
   EvaluationSpecPreview,
   RuntimeConfig,
-} from "../../api";
+} from "@/api";
 
 export type EvaluationRunsPayload = {
   runs: EvaluationRun[];

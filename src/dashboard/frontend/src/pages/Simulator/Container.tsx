@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { DeviceAttributes, DeviceStructure, HomeState, WorkflowList, requestApi, useDashboardQuery } from "../../api";
-import { normalizeRooms } from "../../components/Simulator/LiveHomeSurface";
-import { useDashboardRuntimeStore } from "../../store";
-import { RequestEntry, SimulatorBottomTab } from "../../types/simulator/models";
-import { SimulatorPresenter } from "./Presenter";
+import { DeviceAttributes, DeviceStructure, HomeState, WorkflowList, requestApi, useDashboardQuery } from "@/api";
+import { normalizeRooms } from "@/components/Simulator/LiveHomeSurface";
+import { useDashboardRuntimeStore } from "@/store";
+import { RequestEntry, SimulatorBottomTab } from "@/types/simulator/models";
+import { SimulatorPresenter } from "@/pages/Simulator/Presenter";
 
 const DEMO_RESET_CONFIG = {
   tick_interval: 0.5,

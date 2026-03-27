@@ -1,7 +1,7 @@
 import { Alert, Stack, Typography } from "@mui/material";
 
-import type { EvaluationJudgeFailuresPanelProps } from "../../types/evaluation/components";
-import { MonoBlock, Surface } from "../../ui";
+import type { EvaluationJudgeFailuresPanelProps } from "@/types/evaluation/components";
+import { MonoBlock, Surface } from "@/ui";
 
 export function EvaluationJudgeFailuresPanel({ failures }: EvaluationJudgeFailuresPanelProps) {
   if (failures.length === 0) {

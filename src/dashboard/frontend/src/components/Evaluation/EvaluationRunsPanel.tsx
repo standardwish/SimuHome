@@ -2,8 +2,8 @@ import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import { Alert, Box, Button, Stack, Typography } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
-import type { EvaluationRunsPanelProps } from "../../types/evaluation/components";
-import { MetricStrip, Surface } from "../../ui";
+import type { EvaluationRunsPanelProps } from "@/types/evaluation/components";
+import { MetricStrip, Surface } from "@/ui";
 
 export function EvaluationRunsPanel({
   runs,

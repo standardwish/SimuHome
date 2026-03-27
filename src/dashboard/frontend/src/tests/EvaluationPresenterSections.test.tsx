@@ -2,12 +2,12 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import { EvaluationJudgeFailuresPanel } from "../components/Evaluation/EvaluationJudgeFailuresPanel";
-import { EvaluationLogPanel } from "../components/Evaluation/EvaluationLogPanel";
-import { EvaluationRunControlsPanel } from "../components/Evaluation/EvaluationRunControlsPanel";
-import { EvaluationRunsPanel } from "../components/Evaluation/EvaluationRunsPanel";
-import { EvaluationRuntimePanel } from "../components/Evaluation/EvaluationRuntimePanel";
-import { EvaluationSpecPreviewPanel } from "../components/Evaluation/EvaluationSpecPreviewPanel";
+import { EvaluationJudgeFailuresPanel } from "@/components/Evaluation/EvaluationJudgeFailuresPanel";
+import { EvaluationLogPanel } from "@/components/Evaluation/EvaluationLogPanel";
+import { EvaluationRunControlsPanel } from "@/components/Evaluation/EvaluationRunControlsPanel";
+import { EvaluationRunsPanel } from "@/components/Evaluation/EvaluationRunsPanel";
+import { EvaluationRuntimePanel } from "@/components/Evaluation/EvaluationRuntimePanel";
+import { EvaluationSpecPreviewPanel } from "@/components/Evaluation/EvaluationSpecPreviewPanel";
 
 describe("Evaluation presenter sections", () => {
   it("renders the extracted sections with the expected surface content", () => {

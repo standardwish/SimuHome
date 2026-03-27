@@ -1,11 +1,11 @@
 import { Alert, Box, Stack } from "@mui/material";
 import { motion } from "framer-motion";
 
-import { PageIntro } from "../../ui";
-import type { SimulatorPresenterProps } from "../../types/pages/simulator";
-import { LiveHomeSurface } from "../../components/Simulator/LiveHomeSurface";
-import { SimulatorDeviceInspector } from "../../components/Simulator/SimulatorDeviceInspector";
-import { SimulatorOperationsPanel } from "../../components/Simulator/SimulatorOperationsPanel";
+import { PageIntro } from "@/ui";
+import type { SimulatorPresenterProps } from "@/types/pages/simulator";
+import { LiveHomeSurface } from "@/components/Simulator/LiveHomeSurface";
+import { SimulatorDeviceInspector } from "@/components/Simulator/SimulatorDeviceInspector";
+import { SimulatorOperationsPanel } from "@/components/Simulator/SimulatorOperationsPanel";
 
 export function SimulatorPresenter({
   home,

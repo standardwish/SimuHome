@@ -1,4 +1,4 @@
-import type { WikiCluster, WikiDeviceDetail, WikiDeviceSummary, WikiDeviceTypes } from "../../api";
+import type { WikiCluster, WikiDeviceDetail, WikiDeviceSummary, WikiDeviceTypes } from "@/api";
 
 export type DeviceDirectoryProps = {
   devices: WikiDeviceSummary[];

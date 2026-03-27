@@ -16,9 +16,9 @@ import { alpha } from "@mui/material/styles";
 import { motion } from "framer-motion";
 import { memo } from "react";
 
-import type { SimulatorDeviceInspectorProps } from "../../types/simulator/components";
-import { Surface } from "../../ui";
-import { summarizeRoomState } from "./LiveHomeSurface";
+import type { SimulatorDeviceInspectorProps } from "@/types/simulator/components";
+import { Surface } from "@/ui";
+import { summarizeRoomState } from "@/components/Simulator/LiveHomeSurface";
 
 const BLUEPRINT = "#10324a";
 

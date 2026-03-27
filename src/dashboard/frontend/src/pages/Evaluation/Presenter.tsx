@@ -1,13 +1,13 @@
 import { Alert, Box, Stack } from "@mui/material";
 
-import { EvaluationJudgeFailuresPanel } from "../../components/Evaluation/EvaluationJudgeFailuresPanel";
-import { EvaluationLogPanel } from "../../components/Evaluation/EvaluationLogPanel";
-import { EvaluationRunControlsPanel } from "../../components/Evaluation/EvaluationRunControlsPanel";
-import { EvaluationRunsPanel } from "../../components/Evaluation/EvaluationRunsPanel";
-import { EvaluationRuntimePanel } from "../../components/Evaluation/EvaluationRuntimePanel";
-import { EvaluationSpecPreviewPanel } from "../../components/Evaluation/EvaluationSpecPreviewPanel";
-import { PageIntro } from "../../ui";
-import type { EvaluationPresenterProps } from "../../types/pages/evaluation";
+import { EvaluationJudgeFailuresPanel } from "@/components/Evaluation/EvaluationJudgeFailuresPanel";
+import { EvaluationLogPanel } from "@/components/Evaluation/EvaluationLogPanel";
+import { EvaluationRunControlsPanel } from "@/components/Evaluation/EvaluationRunControlsPanel";
+import { EvaluationRunsPanel } from "@/components/Evaluation/EvaluationRunsPanel";
+import { EvaluationRuntimePanel } from "@/components/Evaluation/EvaluationRuntimePanel";
+import { EvaluationSpecPreviewPanel } from "@/components/Evaluation/EvaluationSpecPreviewPanel";
+import { PageIntro } from "@/ui";
+import type { EvaluationPresenterProps } from "@/types/pages/evaluation";
 
 export function EvaluationPresenter({
   message,

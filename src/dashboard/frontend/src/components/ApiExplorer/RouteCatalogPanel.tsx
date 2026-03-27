@@ -1,8 +1,8 @@
 import { Box, MenuItem, Select, Stack, Typography } from "@mui/material";
 
-import type { ApiRouteEntry } from "../../api";
-import type { RouteCatalogPanelProps } from "../../types/apiExplorer/components";
-import { Surface } from "../../ui";
+import type { ApiRouteEntry } from "@/api";
+import type { RouteCatalogPanelProps } from "@/types/apiExplorer/components";
+import { Surface } from "@/ui";
 
 function routeKey(route: ApiRouteEntry) {
   return `${route.method} ${route.path}`;

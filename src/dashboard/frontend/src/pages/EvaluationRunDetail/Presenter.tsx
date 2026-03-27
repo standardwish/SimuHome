@@ -2,10 +2,10 @@ import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import { Alert, Button, Stack } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
-import { ModelGroupAccordion } from "../../components/EvaluationRunDetail/ModelGroupAccordion";
-import { RunDetailSummaryPanel } from "../../components/EvaluationRunDetail/RunDetailSummaryPanel";
-import type { EvaluationRunDetailPresenterProps } from "../../types/pages/evaluationRunDetail";
-import { PageIntro } from "../../ui";
+import { ModelGroupAccordion } from "@/components/EvaluationRunDetail/ModelGroupAccordion";
+import { RunDetailSummaryPanel } from "@/components/EvaluationRunDetail/RunDetailSummaryPanel";
+import type { EvaluationRunDetailPresenterProps } from "@/types/pages/evaluationRunDetail";
+import { PageIntro } from "@/ui";
 
 export function EvaluationRunDetailPresenter({
   detail,

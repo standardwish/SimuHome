@@ -1,5 +1,5 @@
-import type { RunDetailSummaryPanelProps } from "../../types/evaluationRunDetail/components";
-import { MetricStrip, Surface } from "../../ui";
+import type { RunDetailSummaryPanelProps } from "@/types/evaluationRunDetail/components";
+import { MetricStrip, Surface } from "@/ui";
 
 export function RunDetailSummaryPanel({ detail, runId }: RunDetailSummaryPanelProps) {
   return (

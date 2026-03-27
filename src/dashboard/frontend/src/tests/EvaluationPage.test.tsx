@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "../store";
-import { EvaluationContainer } from "../pages/Evaluation/Container";
+import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "@/store";
+import { EvaluationContainer } from "@/pages/Evaluation/Container";
 
 function renderPage() {
   return render(

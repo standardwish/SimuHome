@@ -3,8 +3,9 @@ import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
-import type { WikiDeviceOverviewPanelProps } from "../../types/wiki/components";
-import { MetricStrip, RailList, Surface } from "../../ui";
+import { apiUrl } from "@/api";
+import type { WikiDeviceOverviewPanelProps } from "@/types/wiki/components";
+import { MetricStrip, RailList, Surface } from "@/ui";
 
 export function WikiDeviceOverviewPanel({
   selectedDeviceType,
@@ -18,7 +19,7 @@ export function WikiDeviceOverviewPanel({
 }: WikiDeviceOverviewPanelProps) {
   return (
     <Surface
-      title={selectedDeviceType}
+      title="Device overview"
       caption="Structure, commands, attributes, and metadata for the selected device type."
       aside={
         <Button
@@ -120,7 +121,7 @@ export function WikiDeviceOverviewPanel({
                   value: selectedCluster.doc_path ? (
                     <Typography
                       component="a"
-                      href={selectedCluster.doc_path}
+                      href={apiUrl(`/api/wiki/clusters/${selectedCluster.cluster_id}/raw`)}
                       target="_blank"
                       rel="noreferrer"
                       sx={{

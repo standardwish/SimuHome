@@ -1,8 +1,8 @@
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Stack, Typography } from "@mui/material";
 
-import type { ModelGroupAccordionProps } from "../../types/evaluationRunDetail/components";
-import { ArtifactAccordion } from "./ArtifactAccordion";
+import type { ModelGroupAccordionProps } from "@/types/evaluationRunDetail/components";
+import { ArtifactAccordion } from "@/components/EvaluationRunDetail/ArtifactAccordion";
 
 export function ModelGroupAccordion({ modelGroup }: ModelGroupAccordionProps) {
   return (

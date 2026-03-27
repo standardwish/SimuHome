@@ -1,7 +1,7 @@
 import { Alert, Stack } from "@mui/material";
 
-import type { EvaluationLogPanelProps } from "../../types/evaluation/components";
-import { MonoBlock, RailList, Surface } from "../../ui";
+import type { EvaluationLogPanelProps } from "@/types/evaluation/components";
+import { MonoBlock, RailList, Surface } from "@/ui";
 
 export function EvaluationLogPanel({
   selectedRunId,

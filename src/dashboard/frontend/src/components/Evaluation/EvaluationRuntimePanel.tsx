@@ -1,7 +1,7 @@
 import { Alert, Stack } from "@mui/material";
 
-import type { EvaluationRuntimePanelProps } from "../../types/evaluation/components";
-import { RailList, Surface } from "../../ui";
+import type { EvaluationRuntimePanelProps } from "@/types/evaluation/components";
+import { RailList, Surface } from "@/ui";
 
 export function EvaluationRuntimePanel({
   experimentsDir,

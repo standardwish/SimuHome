@@ -1,8 +1,8 @@
 import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
 import { Button, Stack, TextField } from "@mui/material";
 
-import type { RequestComposerPanelProps } from "../../types/apiExplorer/components";
-import { MonoBlock, Surface } from "../../ui";
+import type { RequestComposerPanelProps } from "@/types/apiExplorer/components";
+import { MonoBlock, Surface } from "@/ui";
 
 export function RequestComposerPanel({
   selectedRouteMethod,

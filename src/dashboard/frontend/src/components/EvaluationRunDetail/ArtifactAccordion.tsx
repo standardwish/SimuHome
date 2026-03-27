@@ -1,8 +1,8 @@
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Chip, Stack, Typography } from "@mui/material";
 
-import type { ArtifactAccordionProps } from "../../types/evaluationRunDetail/components";
-import { MonoBlock, RailList } from "../../ui";
+import type { ArtifactAccordionProps } from "@/types/evaluationRunDetail/components";
+import { MonoBlock, RailList } from "@/ui";
 
 function formatDuration(duration: number | null): string {
   if (typeof duration !== "number") {

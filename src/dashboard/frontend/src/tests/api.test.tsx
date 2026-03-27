@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useDashboardQuery } from "../api";
+import { useDashboardQuery } from "@/api";
 
 describe("useDashboardQuery", () => {
   beforeEach(() => {

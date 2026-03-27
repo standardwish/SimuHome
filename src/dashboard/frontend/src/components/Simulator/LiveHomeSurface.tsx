@@ -7,10 +7,10 @@ import { alpha } from "@mui/material/styles";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 
-import { HomeState } from "../../api";
-import type { LiveHomeSurfaceProps, RoomLayout, TreemapRect } from "../../types/simulator/components";
-import { RoomViewModel } from "../../types/simulator/models";
-import { MetricStrip, Surface } from "../../ui";
+import { HomeState } from "@/api";
+import type { LiveHomeSurfaceProps, RoomLayout, TreemapRect } from "@/types/simulator/components";
+import { RoomViewModel } from "@/types/simulator/models";
+import { MetricStrip, Surface } from "@/ui";
 
 const ROOM_ORDER = [
   "living_room",

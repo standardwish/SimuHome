@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createDashboardApiProxyMiddleware,
   DASHBOARD_CONTROL_PATHS,
   createDashboardControlMiddleware,
   runDashboardControlCommand,
@@ -66,6 +67,70 @@ describe("dev-control", () => {
 
     middleware(
       { method: "GET", url: "/api/__health__" } as never,
+      {} as never,
+      next,
+    );
+
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("proxies api requests to the dashboard backend", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response("# On/Off Cluster", {
+        status: 200,
+        headers: { "Content-Type": "text/markdown; charset=utf-8" },
+      }),
+    );
+    const middleware = createDashboardApiProxyMiddleware(fetchMock);
+    const next = vi.fn();
+    let body = "";
+    const response = {
+      statusCode: 0,
+      headers: {} as Record<string, string>,
+      setHeader(name: string, value: string) {
+        this.headers[name] = value;
+      },
+      end(chunk?: string | Buffer) {
+        body =
+          typeof chunk === "string"
+            ? chunk
+            : chunk
+              ? Buffer.from(chunk).toString("utf-8")
+              : "";
+      },
+    };
+
+    middleware(
+      {
+        method: "GET",
+        url: "/api/wiki/clusters/OnOff/raw",
+        headers: { accept: "text/markdown" },
+      } as never,
+      response as never,
+      next,
+    );
+
+    await vi.waitFor(() => {
+      expect(response.statusCode).toBe(200);
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/wiki/clusters/OnOff/raw",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
+    expect(response.headers["content-type"]).toContain("text/markdown");
+    expect(body).toContain("On/Off Cluster");
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("passes through non-api requests in the api proxy middleware", () => {
+    const middleware = createDashboardApiProxyMiddleware();
+    const next = vi.fn();
+
+    middleware(
+      { method: "GET", url: "/wiki/on_off_light", headers: {} } as never,
       {} as never,
       next,
     );

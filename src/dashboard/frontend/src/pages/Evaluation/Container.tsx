@@ -6,13 +6,13 @@ import {
   RuntimeConfig,
   requestApi,
   useDashboardQuery,
-} from "../../api";
-import { useDashboardRuntimeStore } from "../../store";
+} from "@/api";
+import { useDashboardRuntimeStore } from "@/store";
 import type {
   EvaluationLaunchResponse,
   EvaluationRunsPayload,
-} from "../../types/pages/evaluation";
-import { EvaluationPresenter } from "./Presenter";
+} from "@/types/pages/evaluation";
+import { EvaluationPresenter } from "@/pages/Evaluation/Presenter";
 
 function runIdFromLogPath(logPath: string): string | null {
   const segments = logPath.split("/").filter(Boolean);

@@ -2,7 +2,10 @@ import path from "node:path";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
-import { createDashboardControlMiddleware } from "./dev-control";
+import {
+  createDashboardApiProxyMiddleware,
+  createDashboardControlMiddleware,
+} from "./dev-control";
 
 export default defineConfig({
   resolve: {
@@ -16,6 +19,9 @@ export default defineConfig({
       name: "dashboard-control",
       configureServer(server) {
         server.middlewares.use(createDashboardControlMiddleware());
+      },
+      configurePreviewServer(server) {
+        server.middlewares.use(createDashboardApiProxyMiddleware());
       },
     },
   ],

@@ -3,8 +3,8 @@ import type {
   DeviceStructure,
   HomeState,
   WorkflowList,
-} from "../../api";
-import type { RequestEntry, RoomDeviceViewModel, RoomViewModel, SimulatorBottomTab } from "../simulator/models";
+} from "@/api";
+import type { RequestEntry, RoomDeviceViewModel, RoomViewModel, SimulatorBottomTab } from "@/types/simulator/models";
 
 export type SimulatorPresenterProps = {
   home: HomeState | null;

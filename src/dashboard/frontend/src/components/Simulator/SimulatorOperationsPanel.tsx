@@ -13,8 +13,8 @@ import {
 import { motion } from "framer-motion";
 import { memo } from "react";
 
-import type { SimulatorOperationsPanelProps } from "../../types/simulator/components";
-import { Surface } from "../../ui";
+import type { SimulatorOperationsPanelProps } from "@/types/simulator/components";
+import { Surface } from "@/ui";
 
 export const SimulatorOperationsPanel = memo(function SimulatorOperationsPanel({
   bottomTab,

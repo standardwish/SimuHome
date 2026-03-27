@@ -1,4 +1,4 @@
-import { dashboardTheme } from "../theme";
+import { dashboardTheme } from "@/theme";
 
 describe("dashboardTheme", () => {
   it("uses Ubuntu as the global font family", () => {

@@ -1,12 +1,12 @@
 import { alpha, createTheme } from "@mui/material/styles";
-import UbuntuBold from "./assets/fonts/Ubuntu-Bold.ttf";
-import UbuntuBoldItalic from "./assets/fonts/Ubuntu-BoldItalic.ttf";
-import UbuntuItalic from "./assets/fonts/Ubuntu-Italic.ttf";
-import UbuntuLight from "./assets/fonts/Ubuntu-Light.ttf";
-import UbuntuLightItalic from "./assets/fonts/Ubuntu-LightItalic.ttf";
-import UbuntuMedium from "./assets/fonts/Ubuntu-Medium.ttf";
-import UbuntuMediumItalic from "./assets/fonts/Ubuntu-MediumItalic.ttf";
-import UbuntuRegular from "./assets/fonts/Ubuntu-Regular.ttf";
+import UbuntuBold from "@/assets/fonts/Ubuntu-Bold.ttf";
+import UbuntuBoldItalic from "@/assets/fonts/Ubuntu-BoldItalic.ttf";
+import UbuntuItalic from "@/assets/fonts/Ubuntu-Italic.ttf";
+import UbuntuLight from "@/assets/fonts/Ubuntu-Light.ttf";
+import UbuntuLightItalic from "@/assets/fonts/Ubuntu-LightItalic.ttf";
+import UbuntuMedium from "@/assets/fonts/Ubuntu-Medium.ttf";
+import UbuntuMediumItalic from "@/assets/fonts/Ubuntu-MediumItalic.ttf";
+import UbuntuRegular from "@/assets/fonts/Ubuntu-Regular.ttf";
 
 const ink = "#111827";
 const steel = "#4b5563";

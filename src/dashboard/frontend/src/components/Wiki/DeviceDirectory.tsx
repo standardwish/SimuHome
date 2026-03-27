@@ -1,12 +1,15 @@
 import { Box, Typography } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
-import type { DeviceDirectoryProps } from "../../types/wiki/components";
-import { Surface } from "../../ui";
+import type { DeviceDirectoryProps } from "@/types/wiki/components";
+import { Surface } from "@/ui";
 
 export function DeviceDirectory({ devices, activeDeviceType }: DeviceDirectoryProps) {
   return (
-    <Surface title="Devices" caption="Every supported device type registered in the simulator codebase.">
+    <Surface
+      title="Device list"
+      caption={`${devices.length} supported device types registered in the simulator codebase.`}
+    >
       <Box>
         {devices.map((device) => {
           const isActive = activeDeviceType === device.device_type;

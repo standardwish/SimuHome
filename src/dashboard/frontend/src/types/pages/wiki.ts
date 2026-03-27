@@ -3,7 +3,7 @@ import type {
   WikiDeviceDetail,
   WikiDeviceSummary,
   WikiDeviceTypes,
-} from "../../api";
+} from "@/api";
 
 export type WikiPresenterProps = {
   deviceTypes: WikiDeviceTypes | null;

@@ -1,7 +1,7 @@
 import { Button, Stack, TextField } from "@mui/material";
 
-import type { EvaluationRunControlsPanelProps } from "../../types/evaluation/components";
-import { Surface } from "../../ui";
+import type { EvaluationRunControlsPanelProps } from "@/types/evaluation/components";
+import { Surface } from "@/ui";
 
 export function EvaluationRunControlsPanel({
   specPath,

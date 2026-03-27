@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { App } from "../App";
-import { resetDashboardRuntimeStore } from "../store";
+import { App } from "@/App";
+import { resetDashboardRuntimeStore } from "@/store";
 
 describe("App", () => {
   beforeEach(() => {
@@ -51,7 +51,7 @@ describe("App", () => {
       </MemoryRouter>,
     );
 
-    expect((await screen.findAllByRole("heading", { name: "Wiki" })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("heading", { name: "Devices" })).length).toBeGreaterThan(0);
     expect((await screen.findAllByText(/Implemented device library/i)).length).toBeGreaterThan(0);
   });
 });

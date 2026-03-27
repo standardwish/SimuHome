@@ -1,8 +1,8 @@
 import { useParams } from "react-router-dom";
 
-import { EvaluationRunDetail, useDashboardQuery } from "../../api";
-import { useDashboardRuntimeStore } from "../../store";
-import { EvaluationRunDetailPresenter } from "./Presenter";
+import { EvaluationRunDetail, useDashboardQuery } from "@/api";
+import { useDashboardRuntimeStore } from "@/store";
+import { EvaluationRunDetailPresenter } from "@/pages/EvaluationRunDetail/Presenter";
 
 export function EvaluationRunDetailContainer() {
   const { runId } = useParams();

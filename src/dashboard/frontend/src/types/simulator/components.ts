@@ -1,10 +1,10 @@
-import type { DeviceAttributes, DeviceStructure, WorkflowList } from "../../api";
+import type { DeviceAttributes, DeviceStructure, WorkflowList } from "@/api";
 import type {
   RequestEntry,
   RoomDeviceViewModel,
   RoomViewModel,
   SimulatorBottomTab,
-} from "./models";
+} from "@/types/simulator/models";
 
 export type RoomLayout = {
   roomId: string;

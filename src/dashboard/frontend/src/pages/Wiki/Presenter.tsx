@@ -2,11 +2,11 @@ import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import { Alert, Button, Stack, Typography } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 
-import { DeviceDirectory } from "../../components/Wiki/DeviceDirectory";
-import { WikiClusterDocsPanel } from "../../components/Wiki/WikiClusterDocsPanel";
-import { WikiDeviceOverviewPanel } from "../../components/Wiki/WikiDeviceOverviewPanel";
-import type { WikiPresenterProps } from "../../types/pages/wiki";
-import { MetricStrip, PageIntro, Surface } from "../../ui";
+import { DeviceDirectory } from "@/components/Wiki/DeviceDirectory";
+import { WikiClusterDocsPanel } from "@/components/Wiki/WikiClusterDocsPanel";
+import { WikiDeviceOverviewPanel } from "@/components/Wiki/WikiDeviceOverviewPanel";
+import type { WikiPresenterProps } from "@/types/pages/wiki";
+import { PageIntro, Surface } from "@/ui";
 
 export function WikiPresenter({
   deviceTypes,
@@ -23,12 +23,18 @@ export function WikiPresenter({
   clusterDocContent,
   onSelectCluster,
 }: WikiPresenterProps) {
+  const isDeviceDetailRoute = Boolean(selectedDeviceType && knownDevice);
+  const pageTitle = isDeviceDetailRoute ? selectedDeviceType : "Devices";
+  const pageDescription = isDeviceDetailRoute
+    ? "Implemented device reference sourced from the simulator code registry."
+    : "Implemented device library. Choose a device type to open its dedicated reference page.";
+
   return (
     <Stack spacing={2}>
       <PageIntro
         eyebrow="Implemented device reference"
-        title="Wiki"
-        description="Implemented device library. This surface is sourced from the code registry, not from whatever happens to be mounted in the running home."
+        title={pageTitle}
+        description={pageDescription}
       />
 
       {(deviceTypesError || deviceDetailError || clusterDocError) && (
@@ -37,46 +43,20 @@ export function WikiPresenter({
         </Alert>
       )}
 
-      {!selectedDeviceType && (
-        <Stack spacing={2}>
-          <Surface
-            title="Device index"
-            caption="Choose a device type to open a dedicated reference page with clusters, attributes, commands, and linked docs."
-          >
-            <MetricStrip
-              items={[
-                {
-                  label: "Implemented devices",
-                  value: String(deviceTypes?.devices.length ?? 0),
-                  tone: "accent",
-                },
-                {
-                  label: "Registry source",
-                  value: deviceTypes?.source ?? "device_factory",
-                },
-              ]}
-            />
-          </Surface>
-          <DeviceDirectory devices={deviceTypes?.devices ?? []} />
-        </Stack>
-      )}
+      {!selectedDeviceType && <DeviceDirectory devices={deviceTypes?.devices ?? []} />}
 
       {selectedDeviceType && knownDevice && (
         <Stack
-          direction={{ xs: "column", xl: "row" }}
           spacing={2}
           sx={{
             display: "grid",
             gridTemplateColumns: {
               xs: "1fr",
-              xl: "320px minmax(0, 1fr) 360px",
+              xl: "minmax(0, 1fr) 360px",
             },
             gap: 2,
           }}
         >
-          <Stack spacing={2}>
-            <DeviceDirectory devices={deviceTypes?.devices ?? []} activeDeviceType={selectedDeviceType} />
-          </Stack>
           <Stack spacing={2}>
             <WikiDeviceOverviewPanel
               selectedDeviceType={selectedDeviceType}

@@ -1,4 +1,4 @@
-import type { EvaluationRun } from "../../api";
+import type { EvaluationRun } from "@/api";
 
 export type EvaluationRunControlsPanelProps = {
   specPath: string;

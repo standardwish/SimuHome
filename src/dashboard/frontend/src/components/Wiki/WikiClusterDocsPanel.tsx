@@ -1,7 +1,7 @@
 import { Stack } from "@mui/material";
 
-import type { WikiClusterDocsPanelProps } from "../../types/wiki/components";
-import { MonoBlock, Surface } from "../../ui";
+import type { WikiClusterDocsPanelProps } from "@/types/wiki/components";
+import { MonoBlock, Surface } from "@/ui";
 
 export function WikiClusterDocsPanel({
   selectedCluster,

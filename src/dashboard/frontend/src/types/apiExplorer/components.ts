@@ -1,5 +1,5 @@
-import type { ApiRouteEntry } from "../../api";
-import type { HistoryEntry } from "../pages/apiExplorer";
+import type { ApiRouteEntry } from "@/api";
+import type { HistoryEntry } from "@/types/pages/apiExplorer";
 
 export type RouteCatalogPanelProps = {
   selectedKey: string;

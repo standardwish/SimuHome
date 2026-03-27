@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SimulatorContainer } from "../pages/Simulator/Container";
-import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "../store";
+import { SimulatorContainer } from "@/pages/Simulator/Container";
+import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "@/store";
 
 const EMPTY_HOME_STATE = {
   status: { code: 200, message: "OK" },

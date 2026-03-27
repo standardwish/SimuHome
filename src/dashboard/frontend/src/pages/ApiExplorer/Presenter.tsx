@@ -1,10 +1,10 @@
 import { Alert, Box, Stack, Typography } from "@mui/material";
 
-import { PageIntro } from "../../ui";
-import type { ApiExplorerPresenterProps } from "../../types/pages/apiExplorer";
-import { ExecutionHistoryPanel } from "../../components/ApiExplorer/ExecutionHistoryPanel";
-import { RequestComposerPanel } from "../../components/ApiExplorer/RequestComposerPanel";
-import { RouteCatalogPanel } from "../../components/ApiExplorer/RouteCatalogPanel";
+import { PageIntro } from "@/ui";
+import type { ApiExplorerPresenterProps } from "@/types/pages/apiExplorer";
+import { ExecutionHistoryPanel } from "@/components/ApiExplorer/ExecutionHistoryPanel";
+import { RequestComposerPanel } from "@/components/ApiExplorer/RequestComposerPanel";
+import { RouteCatalogPanel } from "@/components/ApiExplorer/RouteCatalogPanel";
 
 export function ApiExplorerPresenter({
   catalog,

@@ -6,9 +6,9 @@ import {
   WikiDeviceDetail,
   WikiDeviceTypes,
   useDashboardQuery,
-} from "../../api";
-import { useDashboardRuntimeStore } from "../../store";
-import { WikiPresenter } from "./Presenter";
+} from "@/api";
+import { useDashboardRuntimeStore } from "@/store";
+import { WikiPresenter } from "@/pages/Wiki/Presenter";
 
 export function WikiContainer() {
   const { deviceType: routeDeviceType } = useParams<{ deviceType: string }>();

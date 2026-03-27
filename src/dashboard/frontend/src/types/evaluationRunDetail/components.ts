@@ -1,4 +1,4 @@
-import type { EvaluationRunDetail } from "../../api";
+import type { EvaluationRunDetail } from "@/api";
 
 export type RunDetailSummaryPanelProps = {
   detail: EvaluationRunDetail | null;

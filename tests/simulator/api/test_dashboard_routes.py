@@ -59,6 +59,16 @@ def test_wiki_cluster_doc_returns_markdown_content() -> None:
     assert "On/Off Cluster" in data["content"]
 
 
+def test_wiki_cluster_doc_raw_returns_markdown_response() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/wiki/clusters/OnOff/raw")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/markdown")
+    assert "On/Off Cluster" in response.text
+
+
 def test_local_runtime_config_uses_configured_experiments_directory(
     monkeypatch, tmp_path: Path
 ) -> None:

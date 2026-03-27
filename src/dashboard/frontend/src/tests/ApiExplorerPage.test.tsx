@@ -2,8 +2,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "../store";
-import { ApiExplorerContainer } from "../pages/ApiExplorer/Container";
+import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "@/store";
+import { ApiExplorerContainer } from "@/pages/ApiExplorer/Container";
 
 describe("ApiExplorerPage", () => {
   beforeEach(() => {

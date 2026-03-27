@@ -1,4 +1,4 @@
-import type { ApiRouteEntry, WikiApiCatalog } from "../../api";
+import type { ApiRouteEntry, WikiApiCatalog } from "@/api";
 
 export type HistoryEntry = {
   method: string;

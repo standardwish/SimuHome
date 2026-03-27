@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "../store";
+import { resetDashboardRuntimeStore, useDashboardRuntimeStore } from "@/store";
 
 const DEVICE_TYPES_RESPONSE = {
   status: { code: 200, message: "OK" },
@@ -106,7 +106,7 @@ const CLUSTER_DOC_RESPONSE = {
 };
 
 async function renderWiki(initialEntry: string) {
-  const { WikiContainer } = await import("../pages/Wiki/Container");
+  const { WikiContainer } = await import("@/pages/Wiki/Container");
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
@@ -163,14 +163,15 @@ describe("WikiPage", () => {
   });
 
   it("exports a wiki container for route composition", async () => {
-    const { WikiContainer } = await import("../pages/Wiki/Container");
+    const { WikiContainer } = await import("@/pages/Wiki/Container");
     expect(WikiContainer).toBeTypeOf("function");
   });
 
   it("renders the wiki index as a linked device directory", async () => {
     await renderWiki("/wiki");
 
-    expect(await screen.findByRole("heading", { name: "Wiki" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Devices", level: 3 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Wiki" })).not.toBeInTheDocument();
     const deviceLink = await screen.findByRole("link", { name: /on_off_light/i });
     expect(deviceLink).toHaveAttribute("href", "/wiki/on_off_light");
     expect(screen.queryByText("Back to device list")).not.toBeInTheDocument();
@@ -185,6 +186,7 @@ describe("WikiPage", () => {
     expect(
       (await screen.findAllByRole("link", { name: /back to device list/i })).length,
     ).toBeGreaterThan(0);
+    expect(screen.queryByText("Devices")).not.toBeInTheDocument();
     expect(await screen.findByText("OnOffCluster")).toBeInTheDocument();
     expect(await screen.findByText(/Commands and attributes\./i)).toBeInTheDocument();
   });
@@ -195,10 +197,31 @@ describe("WikiPage", () => {
     expect(
       (await screen.findAllByRole("link", { name: /back to device list/i })).length,
     ).toBeGreaterThan(0);
-    expect(await screen.findByRole("heading", { name: "on_off_light" })).toBeInTheDocument();
+    expect(screen.queryByText("Devices")).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "on_off_light", level: 3 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Wiki" })).not.toBeInTheDocument();
     expect(await screen.findByText("Registry source")).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText(/Commands and attributes\./i)).toBeInTheDocument();
     });
+  });
+
+  it("links the cluster doc file to a browser-accessible markdown endpoint", async () => {
+    await renderWiki("/wiki/on_off_light");
+
+    const docFileLink = await screen.findByRole("link", {
+      name: /on_off_cluster\.md/i,
+    });
+
+    expect(docFileLink).toHaveAttribute(
+      "href",
+      expect.stringContaining("/api/wiki/clusters/OnOff/raw"),
+    );
+    expect(docFileLink).not.toHaveAttribute(
+      "href",
+      "/data2/pyojunseong/SimuHome/docs/clusters/On_Off_Cluster.md",
+    );
   });
 });

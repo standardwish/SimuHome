@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from src.cli import main as cli_main
@@ -85,6 +85,15 @@ def get_wiki_cluster_doc(cluster_id: str):
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return ResponseBuilder.from_result(Result.ok(payload))
+
+
+@router.get("/wiki/clusters/{cluster_id}/raw")
+def get_wiki_cluster_doc_raw(cluster_id: str):
+    try:
+        payload = get_cluster_doc_payload(cluster_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return Response(content=payload["content"], media_type="text/markdown")
 
 
 @router.get("/local/runtime/config")

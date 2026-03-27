@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ApiRouteEntry, WikiApiCatalog, requestApi, useDashboardQuery } from "../../api";
-import { useDashboardRuntimeStore } from "../../store";
-import type { HistoryEntry } from "../../types/pages/apiExplorer";
-import { ApiExplorerPresenter } from "./Presenter";
+import { ApiRouteEntry, WikiApiCatalog, requestApi, useDashboardQuery } from "@/api";
+import { useDashboardRuntimeStore } from "@/store";
+import type { HistoryEntry } from "@/types/pages/apiExplorer";
+import { ApiExplorerPresenter } from "@/pages/ApiExplorer/Presenter";
 
 function routeKey(route: ApiRouteEntry) {
   return `${route.method} ${route.path}`;

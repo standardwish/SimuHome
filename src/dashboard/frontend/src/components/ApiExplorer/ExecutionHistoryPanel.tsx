@@ -1,7 +1,7 @@
 import { Alert, Stack, Typography } from "@mui/material";
 
-import type { ExecutionHistoryPanelProps } from "../../types/apiExplorer/components";
-import { Surface } from "../../ui";
+import type { ExecutionHistoryPanelProps } from "@/types/apiExplorer/components";
+import { Surface } from "@/ui";
 
 export function ExecutionHistoryPanel({ history }: ExecutionHistoryPanelProps) {
   return (
