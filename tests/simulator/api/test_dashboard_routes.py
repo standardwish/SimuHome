@@ -56,6 +56,8 @@ def test_wiki_aggregator_detail_exposes_mechanism_and_affected_devices() -> None
     assert data["environment_signal"] == "Temperature"
     assert "heat exchange" in data["mechanism"].lower()
     assert "air_conditioner" in data["interested_device_types"]
+    assert "baseline" in data["formula_readable"].lower()
+    assert "restoration_delta" in data["formula_code"]
     assert data["unit"] == "°C"
 
 

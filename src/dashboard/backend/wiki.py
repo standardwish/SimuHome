@@ -29,6 +29,15 @@ AGGREGATOR_WIKI_METADATA: dict[str, dict[str, str]] = {
             "Uses heat exchange from active HVAC devices and passive restoration "
             "toward the baseline temperature."
         ),
+        "formula_readable": (
+            "current_value(t+1) = current_value(t) + total device heating/cooling "
+            "effect + restoration toward baseline"
+        ),
+        "formula_code": (
+            "restoration_delta = baseline_value - current_value\n"
+            "current_value += total_effect\n"
+            "current_value += restoration_delta * restoration_rate_per_second * tick_interval"
+        ),
         "sensor_sync": (
             "Thermostat and temperature-reporting sensor clusters are synchronized "
             "from the aggregated environment temperature."
@@ -40,6 +49,15 @@ AGGREGATOR_WIKI_METADATA: dict[str, dict[str, str]] = {
         "mechanism": (
             "Applies continuous purification from active purifiers and gradual "
             "restoration toward the baseline pollution level."
+        ),
+        "formula_readable": (
+            "current_value(t+1) = current_value(t) - purification effect + "
+            "restoration toward baseline"
+        ),
+        "formula_code": (
+            "current_value += total_purification\n"
+            "restoration_delta = baseline_value - current_value\n"
+            "current_value += restoration_delta * restoration_rate_per_second * tick_interval"
         ),
         "sensor_sync": (
             "Air quality and particulate-reporting clusters are synchronized from "
@@ -53,6 +71,15 @@ AGGREGATOR_WIKI_METADATA: dict[str, dict[str, str]] = {
             "Combines a baseline ambient illuminance level with additive light "
             "contributions from active fixtures."
         ),
+        "formula_readable": (
+            "current_value = baseline ambient illuminance + sum(active light contributions)"
+        ),
+        "formula_code": (
+            "total_illuminance = baseline_value\n"
+            "for device in monitored_devices:\n"
+            "    total_illuminance += device_contribution(device)\n"
+            "current_value = total_illuminance"
+        ),
         "sensor_sync": (
             "Brightness-dependent environment readings are interpreted from the "
             "aggregated illuminance state."
@@ -64,6 +91,15 @@ AGGREGATOR_WIKI_METADATA: dict[str, dict[str, str]] = {
         "mechanism": (
             "Applies continuous humidifying or dehumidifying effects and gradual "
             "restoration toward the baseline humidity."
+        ),
+        "formula_readable": (
+            "current_value(t+1) = current_value(t) + humidifying/dehumidifying effect "
+            "+ restoration toward baseline"
+        ),
+        "formula_code": (
+            "current_value += total_effect\n"
+            "restoration_delta = baseline_value - current_value\n"
+            "current_value += restoration_delta * restoration_rate_per_second * tick_interval"
         ),
         "sensor_sync": (
             "Relative humidity measurement clusters are synchronized from the "
@@ -215,6 +251,8 @@ def _build_aggregator_payload(aggregator_type: str) -> dict[str, Any]:
         "environment_signal": doc_metadata["environment_signal"],
         "summary": doc_metadata["summary"],
         "mechanism": doc_metadata["mechanism"],
+        "formula_readable": doc_metadata["formula_readable"],
+        "formula_code": doc_metadata["formula_code"],
         "sensor_sync": doc_metadata["sensor_sync"],
         "unit": aggregator.unit,
         "baseline_value": aggregator.baseline_value,

@@ -83,6 +83,10 @@ const AGGREGATOR_DETAIL_RESPONSE = {
     summary: "Tracks room temperature from HVAC and air movement devices.",
     mechanism:
       "Uses heat exchange from active HVAC devices and passive restoration toward the baseline.",
+    formula_readable:
+      "current_value(t+1) = current_value(t) + device_effects + restoration toward baseline",
+    formula_code:
+      "restoration_delta = baseline_value - current_value\ncurrent_value += total_effect\ncurrent_value += restoration_delta * restoration_rate_per_second * tick_interval",
     sensor_sync:
       "Thermostat and temperature-reporting sensor clusters are synchronized from the aggregated environment state.",
     implementation: {
@@ -306,6 +310,8 @@ describe("WikiPage", () => {
 
     expect(await screen.findByRole("heading", { name: "temperature", level: 3 })).toBeInTheDocument();
     expect(await screen.findByText(/heat exchange/i)).toBeInTheDocument();
+    expect(await screen.findByText(/current_value\(t\+1\)/i)).toBeInTheDocument();
+    expect(await screen.findByText(/restoration_delta = baseline_value - current_value/i)).toBeInTheDocument();
     expect(await screen.findByText(/air_conditioner/i)).toBeInTheDocument();
     expect(await screen.findByText(/TemperatureAggregator/i)).toBeInTheDocument();
   });

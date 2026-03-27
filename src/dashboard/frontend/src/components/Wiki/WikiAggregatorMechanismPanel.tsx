@@ -1,7 +1,7 @@
 import { Stack, Typography } from "@mui/material";
 
 import type { WikiAggregatorMechanismPanelProps } from "@/types/wiki/components";
-import { Surface } from "@/ui";
+import { MonoBlock, Surface } from "@/ui";
 
 export function WikiAggregatorMechanismPanel({
   aggregatorDetail,
@@ -18,6 +18,19 @@ export function WikiAggregatorMechanismPanel({
           </Typography>
           <Typography>{aggregatorDetail?.mechanism ?? "No mechanism notes available."}</Typography>
         </div>
+        <div>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+            Readable formula
+          </Typography>
+          <Typography>
+            {aggregatorDetail?.formula_readable ?? "No readable formula notes available."}
+          </Typography>
+        </div>
+        <MonoBlock
+          label="Implementation formula"
+          value={aggregatorDetail?.formula_code ?? "No implementation formula available."}
+          maxHeight={220}
+        />
         <div>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
             Sensor sync

@@ -92,6 +92,8 @@ export type WikiAggregatorDetail = {
   environment_signal: string;
   summary: string;
   mechanism: string;
+  formula_readable: string;
+  formula_code: string;
   sensor_sync: string;
   unit: string;
   baseline_value: number;
