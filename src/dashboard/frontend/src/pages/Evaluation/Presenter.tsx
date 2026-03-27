@@ -99,7 +99,23 @@ export function EvaluationPresenter({
                 .filter(Boolean)
                 .join(" / ") || "—"
             }
-            specPreviewStrategy={specPreview?.summary?.strategy ?? { note: "No strategy preview." }}
+            specPreviewStrategy={{
+              ...(specPreview?.summary?.strategy ?? {}),
+              orchestration: specPreview?.summary?.orchestration ?? null,
+            }}
+            specPreviewApi={
+              specPreview?.summary?.api ?? {
+                base: null,
+                key_source: null,
+              }
+            }
+            specPreviewJudge={
+              specPreview?.summary?.judge ?? {
+                model: null,
+                api_base: null,
+                api_key_source: null,
+              }
+            }
             specPreviewModels={specPreview?.summary?.models ?? []}
             specPreviewYaml={specPreview?.raw_text ?? "Spec preview is unavailable."}
             specPreviewError={specPreviewError}

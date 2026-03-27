@@ -9,6 +9,8 @@ export type RouteCatalogPanelProps = {
 
 export type RequestComposerPanelProps = {
   selectedRouteMethod: string | null;
+  selectedRouteDescription: string;
+  selectedRouteArgs: ApiRouteEntry["args"];
   requestPath: string;
   requestBody: string;
   responseBlock: string;

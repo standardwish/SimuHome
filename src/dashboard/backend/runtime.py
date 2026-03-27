@@ -5,9 +5,11 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import yaml
+
+LOGS_DIR_NAME = "logs"
 
 
 def get_runtime_config() -> dict[str, Any]:
@@ -172,8 +174,7 @@ def get_evaluation_summary(run_id: str) -> dict[str, Any]:
 
 
 def get_evaluation_logs(run_id: str, lines: int = 200) -> dict[str, Any]:
-    run_dir = _experiments_dir() / run_id
-    log_path = run_dir / "dashboard.log"
+    log_path = _dashboard_log_path("evaluation", run_id)
     if not log_path.exists():
         return {"run_id": run_id, "log_path": str(log_path), "lines": []}
 
@@ -182,8 +183,7 @@ def get_evaluation_logs(run_id: str, lines: int = 200) -> dict[str, Any]:
 
 
 def get_generation_logs(run_id: str, lines: int = 200) -> dict[str, Any]:
-    run_dir = _generation_runs_dir() / run_id
-    log_path = run_dir / "dashboard.log"
+    log_path = _dashboard_log_path("generation", run_id)
     if not log_path.exists():
         return {"run_id": run_id, "log_path": str(log_path), "lines": []}
 
@@ -335,7 +335,13 @@ def preview_generation_spec(spec_path: str) -> dict[str, Any]:
 
 
 def start_evaluation(spec_path: str) -> dict[str, Any]:
-    log_path = _ensure_eval_log_dir(spec_path)
+    run_dir = _prepare_start_run_dir(
+        spec_path,
+        default_root=_experiments_dir(),
+        fallback_name="evaluation",
+        resume_hint_builder=lambda path: f"Use --resume {path}",
+    )
+    log_path = _dashboard_log_path("evaluation", run_dir.name)
     command = [
         sys.executable,
         "-m",
@@ -353,7 +359,15 @@ def start_evaluation(spec_path: str) -> dict[str, Any]:
 
 
 def start_generation(spec_path: str) -> dict[str, Any]:
-    log_path = _ensure_generation_log_dir(spec_path)
+    run_dir = _prepare_start_run_dir(
+        spec_path,
+        default_root=_generation_runs_dir(),
+        fallback_name="generation",
+        resume_hint_builder=lambda path: (
+            f'Resume with: uv run simuhome episode-resume --resume "{path}"'
+        ),
+    )
+    log_path = _dashboard_log_path("generation", run_dir.name)
     command = [
         sys.executable,
         "-m",
@@ -371,7 +385,8 @@ def start_generation(spec_path: str) -> dict[str, Any]:
 
 
 def resume_evaluation(resume_path: str) -> dict[str, Any]:
-    log_path = Path(resume_path).resolve() / "dashboard.log"
+    run_dir = Path(resume_path).resolve()
+    log_path = _dashboard_log_path("evaluation", run_dir.name)
     command = [
         sys.executable,
         "-m",
@@ -389,7 +404,8 @@ def resume_evaluation(resume_path: str) -> dict[str, Any]:
 
 
 def resume_generation(resume_path: str) -> dict[str, Any]:
-    log_path = Path(resume_path).resolve() / "dashboard.log"
+    run_dir = Path(resume_path).resolve()
+    log_path = _dashboard_log_path("generation", run_dir.name)
     command = [
         sys.executable,
         "-m",
@@ -407,33 +423,67 @@ def resume_generation(resume_path: str) -> dict[str, Any]:
 
 
 def _spawn(command: list[str], log_path: Path, *, file_mode: str) -> subprocess.Popen[Any]:
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_handle = log_path.open(file_mode, encoding="utf-8")
     env = os.environ.copy()
     env.setdefault("SIMUHOME_EXPERIMENTS_DIR", str(_experiments_dir()))
     env.setdefault("SIMUHOME_GENERATION_RUNS_DIR", str(_generation_runs_dir()))
-    try:
-        process = subprocess.Popen(
-            command,
-            cwd=Path(__file__).resolve().parents[3],
-            env=env,
-            stdout=log_handle,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
+    env["SIMUHOME_DASHBOARD_LOG_PATH"] = str(log_path)
+    env["SIMUHOME_DASHBOARD_LOG_MODE"] = file_mode
+    wrapped_command = [
+        sys.executable,
+        "-m",
+        "src.dashboard.backend.dashboard_log_runner",
+        *command,
+    ]
+    return subprocess.Popen(
+        wrapped_command,
+        cwd=Path(__file__).resolve().parents[3],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
+def _dashboard_log_path(kind: str, run_id: str) -> Path:
+    return _logs_dir() / kind / f"{run_id}.log"
+
+
+def _prepare_start_run_dir(
+    spec_path: str,
+    *,
+    default_root: Path,
+    fallback_name: str,
+    resume_hint_builder: Callable[[Path], str],
+) -> Path:
+    run_dir = _run_dir_from_spec_path(
+        spec_path,
+        default_root=default_root,
+        fallback_name=fallback_name,
+    )
+    if run_dir.exists():
+        raise FileExistsError(
+            f"run directory already exists: {run_dir}. {resume_hint_builder(run_dir)}"
         )
-    finally:
-        log_handle.close()
-    return process
+    return run_dir
 
 
-def _ensure_eval_log_dir(spec_path: str) -> Path:
-    spec_name = Path(spec_path).stem or "evaluation"
-    return _experiments_dir() / f"{spec_name}-dashboard" / "dashboard.log"
+def _run_dir_from_spec_path(spec_path: str, *, default_root: Path, fallback_name: str) -> Path:
+    path = Path(spec_path).expanduser().resolve()
+    spec_name = path.stem or fallback_name
 
-
-def _ensure_generation_log_dir(spec_path: str) -> Path:
-    spec_name = Path(spec_path).stem or "generation"
-    return _generation_runs_dir() / f"{spec_name}-dashboard" / "dashboard.log"
+    try:
+        spec = _require_mapping(
+            yaml.safe_load(path.read_text(encoding="utf-8")),
+            "spec",
+        )
+        run = _require_mapping(spec.get("run"), "run")
+        run_id = _require_non_empty_text(run.get("id"), "run.id")
+        output_root = Path(
+            _require_non_empty_text(run.get("output_root"), "run.output_root")
+        ).expanduser()
+        return output_root.resolve() / run_id
+    except Exception:
+        return default_root / f"{spec_name}-dashboard"
 
 
 def _experiments_dir() -> Path:
@@ -442,6 +492,10 @@ def _experiments_dir() -> Path:
 
 def _generation_runs_dir() -> Path:
     return Path(os.getenv("SIMUHOME_GENERATION_RUNS_DIR", "data/benchmark")).resolve()
+
+
+def _logs_dir() -> Path:
+    return Path(LOGS_DIR_NAME).resolve()
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -609,3 +663,10 @@ def _text_or_none(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _require_non_empty_text(value: object, key_name: str) -> str:
+    text = _text_or_none(value)
+    if text is None:
+        raise ValueError(f"{key_name} must be a non-empty string")
+    return text

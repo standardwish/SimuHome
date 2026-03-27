@@ -29,6 +29,11 @@ export function EvaluationRunsPanel({
             {
               label: "Selected run",
               value: selectedRunLabel || selectedRunId || "—",
+              valueSx: {
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              },
             },
           ]}
         />

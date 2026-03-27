@@ -19,19 +19,26 @@ function runIdFromLogPath(logPath: string): string | null {
   if (segments.length < 2) {
     return null;
   }
+  const fileName = segments[segments.length - 1] ?? "";
+  if (fileName.endsWith(".log") && fileName !== "dashboard.log") {
+    return fileName.slice(0, -4) || null;
+  }
   return segments[segments.length - 2] ?? null;
 }
 
 export function GenerationContainer() {
   const apiHealthy = useDashboardRuntimeStore((state) => state.apiHealthy);
   const pollingIntervalMs = useDashboardRuntimeStore((state) => state.pollingIntervalMs);
-  const runtime = useDashboardQuery<RuntimeConfig>("/api/local/runtime/config", {
+  const runtime = useDashboardQuery<RuntimeConfig>("/api/dashboard/local/runtime/config", {
     enabled: apiHealthy,
   });
-  const runs = useDashboardQuery<GenerationRunsPayload>("/api/local/generations/runs", {
+  const runs = useDashboardQuery<GenerationRunsPayload>(
+    "/api/dashboard/local/generations/runs",
+    {
     intervalMs: pollingIntervalMs,
     enabled: apiHealthy,
-  });
+    },
+  );
   const [specPath, setSpecPath] = useState("gen_spec.example.yaml");
   const [resumePath, setResumePath] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -39,11 +46,13 @@ export function GenerationContainer() {
   const deferredSpecPath = useDeferredValue(specPath.trim());
 
   const specPreview = useDashboardQuery<GenerationSpecPreview>(
-    `/api/local/generations/spec-preview?path=${encodeURIComponent(deferredSpecPath)}`,
+    `/api/dashboard/local/generations/spec-preview?path=${encodeURIComponent(
+      deferredSpecPath,
+    )}`,
     { enabled: apiHealthy && Boolean(deferredSpecPath) },
   );
   const selectedRunLogs = useDashboardQuery<GenerationRunLogs>(
-    `/api/local/generations/runs/${selectedRunId}/logs`,
+    `/api/dashboard/local/generations/runs/${selectedRunId}/logs`,
     {
       intervalMs: pollingIntervalMs,
       enabled: apiHealthy && Boolean(selectedRunId),
@@ -64,7 +73,7 @@ export function GenerationContainer() {
   async function handleStart() {
     try {
       const response = await requestApi<GenerationLaunchResponse>(
-        "/api/local/generations/start",
+        "/api/dashboard/local/generations/start",
         { method: "POST", body: JSON.stringify({ spec_path: specPath }) },
       );
       const launchedRunId = runIdFromLogPath(response.data.log_path);
@@ -81,7 +90,7 @@ export function GenerationContainer() {
   async function handleResume() {
     try {
       const response = await requestApi<GenerationLaunchResponse>(
-        "/api/local/generations/resume",
+        "/api/dashboard/local/generations/resume",
         { method: "POST", body: JSON.stringify({ resume_path: resumePath }) },
       );
       const launchedRunId = runIdFromLogPath(response.data.log_path);

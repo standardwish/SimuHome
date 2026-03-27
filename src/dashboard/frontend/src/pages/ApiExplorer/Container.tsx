@@ -9,34 +9,55 @@ function routeKey(route: ApiRouteEntry) {
   return `${route.method} ${route.path}`;
 }
 
+function isDashboardRoute(route: ApiRouteEntry) {
+  return route.path.startsWith("/api/dashboard/");
+}
+
 export function ApiExplorerContainer() {
   const apiHealthy = useDashboardRuntimeStore((state) => state.apiHealthy);
-  const catalog = useDashboardQuery<WikiApiCatalog>("/api/wiki/apis", {
+  const catalog = useDashboardQuery<WikiApiCatalog>("/api/dashboard/wiki/apis", {
     enabled: apiHealthy,
   });
+  const routes = catalog.data?.routes ?? [];
+  const manualRoutes = useMemo(
+    () => routes.filter((route) => !isDashboardRoute(route)),
+    [routes],
+  );
+  const dashboardRoutes = useMemo(
+    () => routes.filter((route) => isDashboardRoute(route)),
+    [routes],
+  );
   const [selectedKey, setSelectedKey] = useState("");
-  const [requestPath, setRequestPath] = useState("/api/home/state");
+  const [requestPath, setRequestPath] = useState("");
   const [requestBody, setRequestBody] = useState("{}");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [responseBlock, setResponseBlock] = useState<string>("Select a route and execute it.");
 
   const selectedRoute = useMemo(
-    () => catalog.data?.routes.find((route) => routeKey(route) === selectedKey) ?? null,
-    [catalog.data?.routes, selectedKey],
+    () => manualRoutes.find((route) => routeKey(route) === selectedKey) ?? null,
+    [manualRoutes, selectedKey],
   );
 
   useEffect(() => {
-    if (!selectedKey && catalog.data?.routes?.[0]) {
-      const next = catalog.data.routes[0];
+    if (!selectedKey && manualRoutes[0]) {
+      const next = manualRoutes[0];
       setSelectedKey(routeKey(next));
       setRequestPath(next.path);
       setRequestBody("{}");
+      return;
     }
-  }, [catalog.data?.routes, selectedKey]);
+
+    if (selectedKey && !manualRoutes.find((route) => routeKey(route) === selectedKey)) {
+      const next = manualRoutes[0];
+      setSelectedKey(next ? routeKey(next) : "");
+      setRequestPath(next?.path ?? "");
+      setRequestBody("{}");
+    }
+  }, [manualRoutes, selectedKey]);
 
   const handleSelectRoute = useCallback(
     (nextKey: string) => {
-      const next = catalog.data?.routes.find((route) => routeKey(route) === nextKey);
+      const next = manualRoutes.find((route) => routeKey(route) === nextKey);
       if (!next) {
         return;
       }
@@ -44,7 +65,7 @@ export function ApiExplorerContainer() {
       setRequestPath(next.path);
       setRequestBody("{}");
     },
-    [catalog.data?.routes],
+    [manualRoutes],
   );
 
   const executeSelectedRoute = useCallback(async () => {
@@ -63,7 +84,7 @@ export function ApiExplorerContainer() {
         method: selectedRoute.method,
         body,
       });
-      const detail = JSON.stringify(response.data, null, 2);
+      const detail = JSON.stringify(response, null, 2);
       setResponseBlock(detail);
       setHistory((current) => [
         {
@@ -101,6 +122,8 @@ export function ApiExplorerContainer() {
     <ApiExplorerPresenter
       catalog={catalog.data ?? null}
       catalogError={catalog.error}
+      dashboardRoutes={dashboardRoutes}
+      manualRoutes={manualRoutes}
       selectedKey={selectedKey}
       selectedRoute={selectedRoute}
       requestPath={requestPath}

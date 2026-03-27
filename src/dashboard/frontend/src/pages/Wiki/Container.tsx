@@ -22,10 +22,10 @@ export function WikiContainer() {
   const wikiSection = location.pathname.startsWith("/wiki/aggregators")
     ? "aggregators"
     : "devices";
-  const deviceTypes = useDashboardQuery<WikiDeviceTypes>("/api/wiki/device-types", {
+  const deviceTypes = useDashboardQuery<WikiDeviceTypes>("/api/dashboard/wiki/device-types", {
     enabled: apiHealthy && wikiSection === "devices",
   });
-  const aggregators = useDashboardQuery<WikiAggregators>("/api/wiki/aggregators", {
+  const aggregators = useDashboardQuery<WikiAggregators>("/api/dashboard/wiki/aggregators", {
     enabled: apiHealthy && wikiSection === "aggregators",
   });
   const [selectedClusterId, setSelectedClusterId] = useState("");
@@ -41,7 +41,7 @@ export function WikiContainer() {
   );
 
   const deviceDetail = useDashboardQuery<WikiDeviceDetail>(
-    `/api/wiki/device-types/${selectedDeviceType}`,
+    `/api/dashboard/wiki/device-types/${selectedDeviceType}`,
     { enabled: apiHealthy && wikiSection === "devices" && Boolean(selectedDeviceType) },
   );
 
@@ -54,7 +54,7 @@ export function WikiContainer() {
   );
 
   const aggregatorDetail = useDashboardQuery<WikiAggregatorDetail>(
-    `/api/wiki/aggregators/${selectedAggregatorType}`,
+    `/api/dashboard/wiki/aggregators/${selectedAggregatorType}`,
     {
       enabled:
         apiHealthy &&
@@ -91,7 +91,7 @@ export function WikiContainer() {
   );
 
   const clusterDoc = useDashboardQuery<WikiClusterDoc>(
-    `/api/wiki/clusters/${selectedClusterId}`,
+    `/api/dashboard/wiki/clusters/${selectedClusterId}`,
     { enabled: apiHealthy && Boolean(selectedClusterId && selectedCluster?.doc_path) },
   );
 
@@ -102,7 +102,7 @@ export function WikiContainer() {
   const knownAggregator =
     wikiSection !== "aggregators" ||
     !selectedAggregatorType ||
-    Boolean(aggregators.data?.aggregator_types.includes(selectedAggregatorType));
+    Boolean(aggregators.data?.aggregator_types?.includes(selectedAggregatorType));
 
   return (
     <WikiPresenter

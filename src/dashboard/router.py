@@ -41,7 +41,7 @@ from .backend.wiki import (
 )
 
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api/dashboard")
 
 
 class EvaluationStartRequest(BaseModel):
@@ -191,7 +191,11 @@ def post_local_evaluation_start(request: EvaluationStartRequest):
     spec_path = Path(request.spec_path)
     if not spec_path.exists():
         raise HTTPException(status_code=404, detail=f"Spec not found: {request.spec_path}")
-    return ResponseBuilder.from_result(Result.ok(start_evaluation(request.spec_path)))
+    try:
+        payload = start_evaluation(request.spec_path)
+    except FileExistsError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return ResponseBuilder.from_result(Result.ok(payload))
 
 
 @router.post("/local/generations/start")
@@ -199,7 +203,11 @@ def post_local_generation_start(request: EvaluationStartRequest):
     spec_path = Path(request.spec_path)
     if not spec_path.exists():
         raise HTTPException(status_code=404, detail=f"Spec not found: {request.spec_path}")
-    return ResponseBuilder.from_result(Result.ok(start_generation(request.spec_path)))
+    try:
+        payload = start_generation(request.spec_path)
+    except FileExistsError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return ResponseBuilder.from_result(Result.ok(payload))
 
 
 @router.post("/local/evaluations/resume")

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -18,7 +20,7 @@ def _unwrap_ok(response):
 def test_wiki_api_catalog_lists_existing_simulator_routes() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/api/wiki/apis")
+    response = client.get("/api/dashboard/wiki/apis")
 
     data = _unwrap_ok(response)
     routes = {(entry["method"], entry["path"]) for entry in data["routes"]}
@@ -26,10 +28,40 @@ def test_wiki_api_catalog_lists_existing_simulator_routes() -> None:
     assert ("POST", "/api/simulation/reset") in routes
 
 
+def test_wiki_api_catalog_uses_agent_tool_docs_and_explicit_missing_description() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/dashboard/wiki/apis")
+
+    data = _unwrap_ok(response)
+    routes = {(entry["method"], entry["path"]): entry for entry in data["routes"]}
+
+    home_state = routes[("GET", "/api/home/state")]
+    assert home_state["summary"] == "Get a full home snapshot in home_config format."
+    assert home_state["description"] == "Get a full home snapshot in home_config format."
+    assert home_state["args"] == []
+
+    room_states = routes[("GET", "/api/rooms/{room_id}/states")]
+    assert room_states["summary"].startswith("Get environmental states of a room")
+    assert room_states["args"] == [
+        {
+            "name": "room_id",
+            "type": "str",
+            "description": 'Room id (e.g., "living_room")',
+            "required": True,
+        }
+    ]
+
+    health = routes[("GET", "/api/__health__")]
+    assert health["summary"] == "Description is not provided."
+    assert health["description"] == "Description is not provided."
+    assert health["args"] == []
+
+
 def test_wiki_device_types_lists_supported_devices() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/api/wiki/device-types")
+    response = client.get("/api/dashboard/wiki/device-types")
 
     data = _unwrap_ok(response)
     assert "on_off_light" in data["device_types"]
@@ -39,7 +71,7 @@ def test_wiki_device_types_lists_supported_devices() -> None:
 def test_wiki_aggregators_lists_supported_environment_aggregators() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/api/wiki/aggregators")
+    response = client.get("/api/dashboard/wiki/aggregators")
 
     data = _unwrap_ok(response)
     aggregator_types = {entry["aggregator_type"] for entry in data["aggregators"]}
@@ -49,9 +81,10 @@ def test_wiki_aggregators_lists_supported_environment_aggregators() -> None:
 def test_wiki_aggregator_detail_exposes_mechanism_and_affected_devices() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/api/wiki/aggregators/temperature")
+    response = client.get("/api/dashboard/wiki/aggregators/temperature")
 
     data = _unwrap_ok(response)
+    formula_settings = {entry["name"]: entry for entry in data["formula_settings"]}
     assert data["aggregator_type"] == "temperature"
     assert data["environment_signal"] == "Temperature"
     assert "heat exchange" in data["mechanism"].lower()
@@ -59,12 +92,15 @@ def test_wiki_aggregator_detail_exposes_mechanism_and_affected_devices() -> None
     assert "baseline" in data["formula_readable"].lower()
     assert "restoration_delta" in data["formula_code"]
     assert data["unit"] == "°C"
+    assert formula_settings["delta"]["value"] == 0
+    assert formula_settings["restoration_rate_per_second"]["value"] == 0.0002
+    assert formula_settings["tick_interval"]["value"] == 0.1
 
 
 def test_wiki_device_detail_exposes_structure_and_cluster_metadata() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/api/wiki/device-types/on_off_light")
+    response = client.get("/api/dashboard/wiki/device-types/on_off_light")
 
     data = _unwrap_ok(response)
     assert data["device_type"] == "on_off_light"
@@ -77,7 +113,7 @@ def test_wiki_device_detail_exposes_structure_and_cluster_metadata() -> None:
 def test_wiki_cluster_doc_returns_markdown_content() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/api/wiki/clusters/OnOff")
+    response = client.get("/api/dashboard/wiki/clusters/OnOff")
 
     data = _unwrap_ok(response)
     assert data["cluster_id"] == "OnOff"
@@ -87,7 +123,7 @@ def test_wiki_cluster_doc_returns_markdown_content() -> None:
 def test_wiki_cluster_doc_raw_returns_markdown_response() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/api/wiki/clusters/OnOff/raw")
+    response = client.get("/api/dashboard/wiki/clusters/OnOff/raw")
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/markdown")
@@ -103,7 +139,7 @@ def test_local_runtime_config_uses_configured_experiments_directory(
 
     client = TestClient(create_app())
 
-    response = client.get("/api/local/runtime/config")
+    response = client.get("/api/dashboard/local/runtime/config")
 
     data = _unwrap_ok(response)
     assert data["experiments_dir"] == str(experiments_dir)
@@ -131,7 +167,7 @@ def test_local_evaluation_runs_lists_runs_from_experiments_directory(
 
     client = TestClient(create_app())
 
-    response = client.get("/api/local/evaluations/runs")
+    response = client.get("/api/dashboard/local/evaluations/runs")
 
     data = _unwrap_ok(response)
     assert data["runs"][0]["run_id"] == "demo-run"
@@ -192,7 +228,7 @@ def test_local_evaluation_run_detail_exposes_model_groups_and_artifacts(
 
     client = TestClient(create_app())
 
-    response = client.get("/api/local/evaluations/runs/demo-run/detail")
+    response = client.get("/api/dashboard/local/evaluations/runs/demo-run/detail")
 
     data = _unwrap_ok(response)
     assert data["run_id"] == "demo-run"
@@ -235,7 +271,7 @@ def test_local_evaluation_runs_includes_judge_failure_details(
 
     client = TestClient(create_app())
 
-    response = client.get("/api/local/evaluations/runs")
+    response = client.get("/api/dashboard/local/evaluations/runs")
 
     data = _unwrap_ok(response)
     assert data["runs"][0]["judge_failures"] == [
@@ -263,7 +299,7 @@ def test_local_evaluation_runs_ignores_dashboard_log_directories_without_manifes
 
     client = TestClient(create_app())
 
-    response = client.get("/api/local/evaluations/runs")
+    response = client.get("/api/dashboard/local/evaluations/runs")
 
     data = _unwrap_ok(response)
     assert [run["run_id"] for run in data["runs"]] == ["demo-run"]
@@ -280,38 +316,31 @@ def test_local_evaluation_start_spawns_background_process(
     def fake_popen(command, **kwargs):
         captured["command"] = command
         captured["kwargs"] = kwargs
-        return DummyProcess()
-
-    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
-    monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
-
-    client = TestClient(create_app())
-
-    response = client.post(
-        "/api/local/evaluations/start",
-        json={"spec_path": "eval_spec.example.yaml"},
-    )
-
-    data = _unwrap_ok(response)
-    assert data["accepted"] is True
-    assert data["pid"] == 4321
-    assert captured["command"][-2:] == ["--spec", "eval_spec.example.yaml"]
-
-
-def test_local_evaluation_start_clears_existing_dashboard_log(
-    monkeypatch, tmp_path: Path
-) -> None:
-    class DummyProcess:
-        pid = 4321
-
-    def fake_popen(command, **kwargs):
+        captured["run_dir_exists_at_spawn"] = (experiments_dir / "demo-eval-run").exists()
         return DummyProcess()
 
     experiments_dir = tmp_path / "experiments"
-    log_dir = experiments_dir / "eval_spec.example-dashboard"
-    log_dir.mkdir(parents=True)
-    log_path = log_dir / "dashboard.log"
-    log_path.write_text("stale log line\n", encoding="utf-8")
+    spec_path = tmp_path / "eval_spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "schema: simuhome-eval-spec-v1",
+                "run:",
+                "  id: demo-eval-run",
+                f"  output_root: {experiments_dir}",
+                "episode:",
+                "  dir: data/benchmark",
+                "  qt: qt1",
+                "  case: feasible",
+                "  seed: '1'",
+                "models:",
+                "  - model: gpt-5-mini",
+                "    api_base: https://api.openai.com/v1",
+                "    api_key: env:OPENAI_API_KEY",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
     monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(experiments_dir))
     monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
@@ -319,13 +348,20 @@ def test_local_evaluation_start_clears_existing_dashboard_log(
     client = TestClient(create_app())
 
     response = client.post(
-        "/api/local/evaluations/start",
-        json={"spec_path": "eval_spec.example.yaml"},
+        "/api/dashboard/local/evaluations/start",
+        json={"spec_path": str(spec_path)},
     )
 
     data = _unwrap_ok(response)
     assert data["accepted"] is True
-    assert log_path.read_text(encoding="utf-8") == ""
+    assert data["pid"] == 4321
+    assert captured["command"][:3] == [
+        sys.executable,
+        "-m",
+        "src.dashboard.backend.dashboard_log_runner",
+    ]
+    assert captured["command"][-2:] == ["--spec", str(spec_path)]
+    assert captured["run_dir_exists_at_spawn"] is False
 
 
 def test_local_evaluation_start_uses_write_mode_for_dashboard_log(
@@ -337,22 +373,146 @@ def test_local_evaluation_start_uses_write_mode_for_dashboard_log(
         pid = 4321
 
     def fake_popen(command, **kwargs):
-        captured["stdout_mode"] = kwargs["stdout"].mode
+        captured["log_mode"] = kwargs["env"]["SIMUHOME_DASHBOARD_LOG_MODE"]
         return DummyProcess()
 
-    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
+    experiments_dir = tmp_path / "experiments"
+    spec_path = tmp_path / "eval_spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "schema: simuhome-eval-spec-v1",
+                "run:",
+                "  id: demo-eval-run",
+                f"  output_root: {experiments_dir}",
+                "episode:",
+                "  dir: data/benchmark",
+                "  qt: qt1",
+                "  case: feasible",
+                "  seed: '1'",
+                "models:",
+                "  - model: gpt-5-mini",
+                "    api_base: https://api.openai.com/v1",
+                "    api_key: env:OPENAI_API_KEY",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(experiments_dir))
     monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
 
     client = TestClient(create_app())
 
     response = client.post(
-        "/api/local/evaluations/start",
-        json={"spec_path": "eval_spec.example.yaml"},
+        "/api/dashboard/local/evaluations/start",
+        json={"spec_path": str(spec_path)},
     )
 
     data = _unwrap_ok(response)
     assert data["accepted"] is True
-    assert captured["stdout_mode"] == "w"
+    assert captured["log_mode"] == "w"
+
+
+def test_local_evaluation_start_uses_run_directory_dashboard_log(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyProcess:
+        pid = 4321
+
+    def fake_popen(command, **kwargs):
+        captured["log_path"] = kwargs["env"]["SIMUHOME_DASHBOARD_LOG_PATH"]
+        return DummyProcess()
+
+    spec_path = tmp_path / "custom-eval.yaml"
+    output_root = tmp_path / "custom-experiments"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "schema: simuhome-eval-spec-v1",
+                "run:",
+                "  id: actual-eval-run",
+                f"  output_root: {output_root}",
+                "episode:",
+                "  dir: data/benchmark",
+                "  qt: qt1",
+                "  case: feasible",
+                "  seed: '1'",
+                "models:",
+                "  - model: gpt-5-mini",
+                "    api_base: https://api.openai.com/v1",
+                "    api_key: env:OPENAI_API_KEY",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("SIMUHOME_EXPERIMENTS_DIR", str(tmp_path / "fallback-experiments"))
+    monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
+
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/dashboard/local/evaluations/start",
+        json={"spec_path": str(spec_path)},
+    )
+
+    data = _unwrap_ok(response)
+    expected_log_path = Path.cwd() / "logs" / "evaluation" / "actual-eval-run.log"
+    assert data["accepted"] is True
+    assert data["log_path"] == str(expected_log_path)
+    assert captured["log_path"] == str(expected_log_path)
+
+
+def test_local_evaluation_start_rejects_existing_run_before_touching_dashboard_log(
+    monkeypatch, tmp_path: Path
+) -> None:
+    def fake_popen(command, **kwargs):
+        raise AssertionError("subprocess should not be started")
+
+    experiments_dir = tmp_path / "experiments"
+    run_dir = experiments_dir / "actual-eval-run"
+    run_dir.mkdir(parents=True)
+    log_path = Path.cwd() / "logs" / "evaluation" / "actual-eval-run.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text("existing log\n", encoding="utf-8")
+
+    spec_path = tmp_path / "custom-eval.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "schema: simuhome-eval-spec-v1",
+                "run:",
+                "  id: actual-eval-run",
+                f"  output_root: {experiments_dir}",
+                "episode:",
+                "  dir: data/benchmark",
+                "  qt: qt1",
+                "  case: feasible",
+                "  seed: '1'",
+                "models:",
+                "  - model: gpt-5-mini",
+                "    api_base: https://api.openai.com/v1",
+                "    api_key: env:OPENAI_API_KEY",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
+
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/dashboard/local/evaluations/start",
+        json={"spec_path": str(spec_path)},
+    )
+
+    assert response.status_code == 409
+    assert "run directory already exists" in response.json()["detail"]
+    assert log_path.read_text(encoding="utf-8") == "existing log\n"
 
 
 def test_local_evaluation_resume_uses_append_mode_for_dashboard_log(
@@ -364,7 +524,7 @@ def test_local_evaluation_resume_uses_append_mode_for_dashboard_log(
         pid = 4321
 
     def fake_popen(command, **kwargs):
-        captured["stdout_mode"] = kwargs["stdout"].mode
+        captured["log_mode"] = kwargs["env"]["SIMUHOME_DASHBOARD_LOG_MODE"]
         return DummyProcess()
 
     run_dir = tmp_path / "experiments" / "demo-run"
@@ -376,13 +536,13 @@ def test_local_evaluation_resume_uses_append_mode_for_dashboard_log(
     client = TestClient(create_app())
 
     response = client.post(
-        "/api/local/evaluations/resume",
+        "/api/dashboard/local/evaluations/resume",
         json={"resume_path": str(run_dir)},
     )
 
     data = _unwrap_ok(response)
     assert data["accepted"] is True
-    assert captured["stdout_mode"] == "a"
+    assert captured["log_mode"] == "a"
 
 
 def test_local_server_stop_schedules_background_shutdown(monkeypatch) -> None:
@@ -395,7 +555,7 @@ def test_local_server_stop_schedules_background_shutdown(monkeypatch) -> None:
 
     client = TestClient(create_app(), base_url="http://127.0.0.1:8000")
 
-    response = client.post("/api/local/server/stop")
+    response = client.post("/api/dashboard/local/server/stop")
 
     data = _unwrap_ok(response)
     assert data["accepted"] is True
@@ -431,7 +591,7 @@ def test_local_evaluation_spec_preview_reads_yaml_summary(tmp_path: Path) -> Non
     client = TestClient(create_app())
 
     response = client.get(
-        "/api/local/evaluations/spec-preview",
+        "/api/dashboard/local/evaluations/spec-preview",
         params={"path": str(spec_path)},
     )
 
@@ -455,7 +615,7 @@ def test_local_runtime_config_includes_generation_directory_and_example(
 
     client = TestClient(create_app())
 
-    response = client.get("/api/local/runtime/config")
+    response = client.get("/api/dashboard/local/runtime/config")
 
     data = _unwrap_ok(response)
     assert data["generation_runs_dir"] == str(generation_dir)
@@ -507,7 +667,7 @@ def test_local_generation_runs_lists_runs_from_generation_directory(
 
     client = TestClient(create_app())
 
-    response = client.get("/api/local/generations/runs")
+    response = client.get("/api/dashboard/local/generations/runs")
 
     data = _unwrap_ok(response)
     assert data["runs"][0]["run_id"] == "demo-generation"
@@ -583,7 +743,7 @@ def test_local_generation_run_detail_exposes_seed_status_and_artifact_preview(
 
     client = TestClient(create_app())
 
-    response = client.get("/api/local/generations/runs/demo-generation/detail")
+    response = client.get("/api/dashboard/local/generations/runs/demo-generation/detail")
 
     data = _unwrap_ok(response)
     assert data["run_id"] == "demo-generation"
@@ -606,25 +766,153 @@ def test_local_generation_start_spawns_episode_generator_process(
 
     def fake_popen(command, **kwargs):
         captured["command"] = command
-        captured["stdout_mode"] = kwargs["stdout"].mode
+        captured["stdout_mode"] = kwargs["stdout"]
+        captured["stderr_mode"] = kwargs["stderr"]
+        captured["run_dir_exists_at_spawn"] = (generation_dir / "demo-generation-run").exists()
         return DummyProcess()
 
     generation_dir = tmp_path / "generated"
+    spec_path = tmp_path / "gen_spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "schema: simuhome-gen-spec-v1",
+                "run:",
+                "  id: demo-generation-run",
+                f"  output_root: {generation_dir}",
+                "episode:",
+                "  qt: qt1",
+                "  case: feasible",
+                "  seed: '1'",
+                "llm:",
+                "  model: gpt-5-mini",
+                "  api_base: https://api.openai.com/v1",
+                "  api_key: env:OPENAI_API_KEY",
+            ]
+        ),
+        encoding="utf-8",
+    )
     monkeypatch.setenv("SIMUHOME_GENERATION_RUNS_DIR", str(generation_dir))
     monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
 
     client = TestClient(create_app())
 
     response = client.post(
-        "/api/local/generations/start",
-        json={"spec_path": "gen_spec.example.yaml"},
+        "/api/dashboard/local/generations/start",
+        json={"spec_path": str(spec_path)},
     )
 
     data = _unwrap_ok(response)
     assert data["accepted"] is True
     assert data["pid"] == 9876
-    assert captured["command"][-2:] == ["--spec", "gen_spec.example.yaml"]
-    assert captured["stdout_mode"] == "w"
+    assert captured["command"][:3] == [
+        sys.executable,
+        "-m",
+        "src.dashboard.backend.dashboard_log_runner",
+    ]
+    assert captured["command"][-2:] == ["--spec", str(spec_path)]
+    assert captured["stdout_mode"] == subprocess.DEVNULL
+    assert captured["stderr_mode"] == subprocess.DEVNULL
+    assert captured["run_dir_exists_at_spawn"] is False
+
+
+def test_local_generation_start_uses_run_directory_dashboard_log(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyProcess:
+        pid = 9876
+
+    def fake_popen(command, **kwargs):
+        captured["log_path"] = kwargs["env"]["SIMUHOME_DASHBOARD_LOG_PATH"]
+        return DummyProcess()
+
+    spec_path = tmp_path / "custom-generation.yaml"
+    output_root = tmp_path / "custom-generated"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "schema: simuhome-gen-spec-v1",
+                "run:",
+                "  id: actual-generation-run",
+                f"  output_root: {output_root}",
+                "episode:",
+                "  qt: qt1",
+                "  case: feasible",
+                "  seed: '1'",
+                "llm:",
+                "  model: gpt-5-mini",
+                "  api_base: https://api.openai.com/v1",
+                "  api_key: env:OPENAI_API_KEY",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("SIMUHOME_GENERATION_RUNS_DIR", str(tmp_path / "fallback-generated"))
+    monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
+
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/dashboard/local/generations/start",
+        json={"spec_path": str(spec_path)},
+    )
+
+    data = _unwrap_ok(response)
+    expected_log_path = Path.cwd() / "logs" / "generation" / "actual-generation-run.log"
+    assert data["accepted"] is True
+    assert data["log_path"] == str(expected_log_path)
+    assert captured["log_path"] == str(expected_log_path)
+
+
+def test_local_generation_start_rejects_existing_run_before_touching_dashboard_log(
+    monkeypatch, tmp_path: Path
+) -> None:
+    def fake_popen(command, **kwargs):
+        raise AssertionError("subprocess should not be started")
+
+    generation_dir = tmp_path / "generated"
+    run_dir = generation_dir / "actual-generation-run"
+    run_dir.mkdir(parents=True)
+    log_path = Path.cwd() / "logs" / "generation" / "actual-generation-run.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text("existing log\n", encoding="utf-8")
+
+    spec_path = tmp_path / "custom-generation.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "schema: simuhome-gen-spec-v1",
+                "run:",
+                "  id: actual-generation-run",
+                f"  output_root: {generation_dir}",
+                "episode:",
+                "  qt: qt1",
+                "  case: feasible",
+                "  seed: '1'",
+                "llm:",
+                "  model: gpt-5-mini",
+                "  api_base: https://api.openai.com/v1",
+                "  api_key: env:OPENAI_API_KEY",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr("src.dashboard.backend.runtime.subprocess.Popen", fake_popen)
+
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/dashboard/local/generations/start",
+        json={"spec_path": str(spec_path)},
+    )
+
+    assert response.status_code == 409
+    assert "run directory already exists" in response.json()["detail"]
+    assert log_path.read_text(encoding="utf-8") == "existing log\n"
 
 
 def test_local_generation_spec_preview_reads_yaml_summary(tmp_path: Path) -> None:
@@ -656,7 +944,7 @@ def test_local_generation_spec_preview_reads_yaml_summary(tmp_path: Path) -> Non
     client = TestClient(create_app())
 
     response = client.get(
-        "/api/local/generations/spec-preview",
+        "/api/dashboard/local/generations/spec-preview",
         params={"path": str(spec_path)},
     )
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ast
 import inspect
+import re
 from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
@@ -21,6 +23,35 @@ from src.simulator.domain.devices.base import Device
 
 
 DOCS_ROOT = Path(__file__).resolve().parents[3] / "docs" / "clusters"
+AGENT_TOOLS_PATH = Path(__file__).resolve().parents[2] / "agents" / "tools.py"
+DESCRIPTION_NOT_PROVIDED = "Description is not provided."
+ROUTE_TOOL_DOC_MAP: dict[tuple[str, str], str] = {
+    ("POST", "/api/devices/add"): "add_device",
+    ("DELETE", "/api/devices/{device_id}"): "remove_device",
+    ("POST", "/api/simulation/tick_interval"): "set_tick_interval",
+    ("POST", "/api/devices/{device_id}/commands"): "execute_command",
+    ("POST", "/api/devices/{device_id}/attributes/write"): "write_attribute",
+    ("GET", "/api/devices/{device_id}/structure"): "get_device_structure",
+    ("GET", "/api/devices/{device_id}/attributes"): "get_all_attributes",
+    (
+        "GET",
+        "/api/devices/{device_id}/attributes/{endpoint_id}/{cluster_id}/{attribute_id}",
+    ): "get_attribute",
+    ("GET", "/api/rooms/{room_id}/devices"): "get_room_devices",
+    ("GET", "/api/rooms/{room_id}/states"): "get_room_states",
+    ("GET", "/api/home/state"): "get_home_state",
+    ("POST", "/api/schedule/workflow"): "schedule_workflow",
+    ("GET", "/api/schedule/workflow/{workflow_id}/status"): "get_workflow_status",
+    ("POST", "/api/schedule/workflow/{workflow_id}/cancel"): "cancel_workflow",
+    ("GET", "/api/time"): "get_current_time",
+    ("GET", "/api/schedule/workflows"): "get_workflow_list",
+    ("GET", "/api/rooms"): "get_rooms",
+    ("GET", "/api/environment/control_rules/{state}"): "get_environment_control_rules",
+}
+ARG_LINE_PATTERN = re.compile(
+    r"^(?P<name>[\w_]+)\s*\((?P<type>[^)]+)\):\s*"
+    r"(?P<description>.*?)(?:\s*\[(?P<required>required)\])?$"
+)
 AGGREGATOR_WIKI_METADATA: dict[str, dict[str, str]] = {
     "temperature": {
         "environment_signal": "Temperature",
@@ -115,6 +146,21 @@ class ClusterDocLink:
     path: str
 
 
+@dataclass(frozen=True)
+class ToolArgDoc:
+    name: str
+    type: str
+    description: str
+    required: bool
+
+
+@dataclass(frozen=True)
+class ToolDoc:
+    summary: str
+    description: str
+    args: tuple[ToolArgDoc, ...]
+
+
 def build_api_catalog(routes: list[Any]) -> dict[str, Any]:
     catalog: list[dict[str, Any]] = []
     for route in routes:
@@ -125,12 +171,23 @@ def build_api_catalog(routes: list[Any]) -> dict[str, Any]:
 
         methods = sorted(method for method in route.methods or [] if method != "HEAD")
         for method in methods:
+            tool_doc = _tool_doc_for_route(method, route.path)
             catalog.append(
                 {
                     "method": method,
                     "path": route.path,
                     "name": route.name,
-                    "summary": (route.endpoint.__doc__ or "").strip() or None,
+                    "summary": tool_doc.summary,
+                    "description": tool_doc.description,
+                    "args": [
+                        {
+                            "name": arg.name,
+                            "type": arg.type,
+                            "description": arg.description,
+                            "required": arg.required,
+                        }
+                        for arg in tool_doc.args
+                    ],
                 }
             )
 
@@ -238,6 +295,112 @@ def get_cluster_doc_payload(cluster_id: str) -> dict[str, Any]:
     }
 
 
+def _tool_doc_for_route(method: str, path: str) -> ToolDoc:
+    tool_name = ROUTE_TOOL_DOC_MAP.get((method, path))
+    if tool_name is None:
+        return ToolDoc(
+            summary=DESCRIPTION_NOT_PROVIDED,
+            description=DESCRIPTION_NOT_PROVIDED,
+            args=(),
+        )
+    return _load_agent_tool_docs().get(
+        tool_name,
+        ToolDoc(
+            summary=DESCRIPTION_NOT_PROVIDED,
+            description=DESCRIPTION_NOT_PROVIDED,
+            args=(),
+        ),
+    )
+
+
+@lru_cache(maxsize=1)
+def _load_agent_tool_docs() -> dict[str, ToolDoc]:
+    parsed = ast.parse(AGENT_TOOLS_PATH.read_text(encoding="utf-8"))
+    docs: dict[str, ToolDoc] = {}
+
+    for node in parsed.body:
+        if not isinstance(node, ast.FunctionDef) or not node.name.startswith("tool_"):
+            continue
+        docstring = ast.get_docstring(node)
+        if not docstring:
+            continue
+        docs[node.name.removeprefix("tool_")] = _parse_tool_docstring(docstring)
+
+    return docs
+
+
+def _parse_tool_docstring(docstring: str) -> ToolDoc:
+    lines = inspect.cleandoc(docstring).splitlines()
+    description_lines, args_lines = _split_tool_doc_sections(lines)
+    description = " ".join(line.strip() for line in description_lines if line.strip())
+    normalized_description = description or DESCRIPTION_NOT_PROVIDED
+    summary = next(
+        (line.strip() for line in description_lines if line.strip()),
+        DESCRIPTION_NOT_PROVIDED,
+    )
+    args = tuple(_parse_tool_args(args_lines))
+    return ToolDoc(
+        summary=summary,
+        description=normalized_description,
+        args=args,
+    )
+
+
+def _split_tool_doc_sections(lines: list[str]) -> tuple[list[str], list[str]]:
+    description_lines: list[str] = []
+    args_lines: list[str] = []
+    active_section = "description"
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "Args:":
+            active_section = "args"
+            continue
+        if stripped == "Returns:":
+            break
+        if active_section == "description":
+            description_lines.append(line)
+        elif active_section == "args":
+            args_lines.append(line)
+
+    return description_lines, args_lines
+
+
+def _parse_tool_args(lines: list[str]) -> list[ToolArgDoc]:
+    parsed_args: list[ToolArgDoc] = []
+    current_arg: ToolArgDoc | None = None
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line == "(none)":
+            continue
+
+        match = ARG_LINE_PATTERN.match(line)
+        if match:
+            current_arg = ToolArgDoc(
+                name=match.group("name"),
+                type=match.group("type").strip(),
+                description=match.group("description").strip(),
+                required=match.group("required") == "required",
+            )
+            parsed_args.append(current_arg)
+            continue
+
+        if current_arg is None:
+            continue
+
+        updated_description = f"{current_arg.description} {line}".strip()
+        parsed_args[-1] = ToolArgDoc(
+            name=current_arg.name,
+            type=current_arg.type,
+            description=updated_description,
+            required=current_arg.required,
+        )
+        current_arg = parsed_args[-1]
+
+    return parsed_args
+
+
 @lru_cache(maxsize=32)
 def _build_aggregator_payload(aggregator_type: str) -> dict[str, Any]:
     aggregator_cls, aggregator_config = AGGREGATOR_REGISTRY[aggregator_type]
@@ -253,6 +416,9 @@ def _build_aggregator_payload(aggregator_type: str) -> dict[str, Any]:
         "mechanism": doc_metadata["mechanism"],
         "formula_readable": doc_metadata["formula_readable"],
         "formula_code": doc_metadata["formula_code"],
+        "formula_settings": _build_aggregator_formula_settings(
+            aggregator_type, aggregator
+        ),
         "sensor_sync": doc_metadata["sensor_sync"],
         "unit": aggregator.unit,
         "baseline_value": aggregator.baseline_value,
@@ -274,6 +440,171 @@ def _build_aggregator_summary(aggregator_type: str) -> dict[str, Any]:
         "current_value": payload["current_value"],
         "interested_device_types": payload["interested_device_types"],
     }
+
+
+def _build_aggregator_formula_settings(
+    aggregator_type: str, aggregator: Any
+) -> list[dict[str, Any]]:
+    baseline_value = aggregator.baseline_value
+    current_value = aggregator.current_value
+    tick_interval = aggregator.tick_interval
+
+    if aggregator_type == "temperature":
+        return [
+            {
+                "name": "tick_interval",
+                "value": tick_interval,
+                "description": (
+                    "Simulation tick duration used by the aggregator update loop."
+                ),
+            },
+            {
+                "name": "delta",
+                "value": baseline_value - current_value,
+                "description": (
+                    "Current restoration gap computed as baseline_value - current_value."
+                ),
+            },
+            {
+                "name": "restoration_rate_per_second",
+                "value": 0.0002,
+                "description": "Passive return speed toward the baseline temperature.",
+            },
+            {
+                "name": "hvac_rate_cap_per_second_c",
+                "value": 0.0005,
+                "description": (
+                    "Per-second cap for HVAC heating or cooling before tick scaling."
+                ),
+            },
+            {
+                "name": "fan_rate_cap_per_second_c",
+                "value": 0.0002,
+                "description": (
+                    "Per-second cap for fan-only cooling before tick scaling."
+                ),
+            },
+        ]
+
+    if aggregator_type == "pm10":
+        concentration_ratio = 1.0
+        if baseline_value > 0:
+            concentration_ratio = current_value / baseline_value
+        pollution_factor = (
+            concentration_ratio * 0.8
+            if concentration_ratio > 2.0
+            else min(2.0, concentration_ratio)
+        )
+        return [
+            {
+                "name": "tick_interval",
+                "value": tick_interval,
+                "description": (
+                    "Simulation tick duration used by the aggregator update loop."
+                ),
+            },
+            {
+                "name": "restoration_delta",
+                "value": baseline_value - current_value,
+                "description": (
+                    "Current restoration gap computed as baseline_value - current_value."
+                ),
+            },
+            {
+                "name": "restoration_rate_per_second",
+                "value": 0.1,
+                "description": "Passive return speed toward the baseline PM10 level.",
+            },
+            {
+                "name": "base_rate_per_second",
+                "value": 5.0,
+                "description": (
+                    "Base purifier effect before fan intensity and pollution scaling."
+                ),
+            },
+            {
+                "name": "concentration_ratio",
+                "value": concentration_ratio,
+                "description": "Current PM10 concentration divided by the baseline.",
+            },
+            {
+                "name": "pollution_factor",
+                "value": pollution_factor,
+                "description": "Extra scaling applied when pollution is above baseline.",
+            },
+        ]
+
+    if aggregator_type == "illuminance":
+        return [
+            {
+                "name": "baseline_value",
+                "value": baseline_value,
+                "description": "Ambient illuminance present before any light is active.",
+            },
+            {
+                "name": "current_value",
+                "value": current_value,
+                "description": "Default aggregated illuminance loaded from the registry.",
+            },
+            {
+                "name": "on_off_light_contribution_lux",
+                "value": 500.0,
+                "description": "Fixed lux contribution for an active on/off light.",
+            },
+            {
+                "name": "dimmable_light_max_contribution_lux",
+                "value": 500.0,
+                "description": (
+                    "Maximum lux contribution when a dimmable light is at level 254."
+                ),
+            },
+        ]
+
+    if aggregator_type == "humidity":
+        return [
+            {
+                "name": "tick_interval",
+                "value": tick_interval,
+                "description": (
+                    "Simulation tick duration used by the aggregator update loop."
+                ),
+            },
+            {
+                "name": "delta",
+                "value": baseline_value - current_value,
+                "description": (
+                    "Current restoration gap computed as baseline_value - current_value."
+                ),
+            },
+            {
+                "name": "restoration_rate_per_second",
+                "value": 0.01,
+                "description": "Passive return speed toward the baseline humidity.",
+            },
+            {
+                "name": "base_rate_per_second",
+                "value": 5.0,
+                "description": (
+                    "Base humidifying or dehumidifying effect before efficiency scaling."
+                ),
+            },
+            {
+                "name": "humidifier_ceiling",
+                "value": 9000,
+                "description": (
+                    "Humidifiers stop adding moisture once humidity reaches this level."
+                ),
+            },
+            {
+                "name": "dehumidifier_floor",
+                "value": 1000,
+                "description": (
+                    "Dehumidifiers stop removing moisture once humidity reaches this level."
+                ),
+            },
+        ]
+
+    return []
 
 
 def _command_args(commands: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:

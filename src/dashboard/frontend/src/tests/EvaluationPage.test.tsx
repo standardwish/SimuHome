@@ -54,7 +54,7 @@ const LOGS_RESPONSE = {
   status: { code: 200, message: "OK" },
   data: {
     run_id: "example_qt1_seed_1_3_5",
-    log_path: "/tmp/experiments/example_qt1_seed_1_3_5/dashboard.log",
+    log_path: "/tmp/logs/evaluation/example_qt1_seed_1_3_5.log",
     lines: ["[Main] Evaluation started", "[Worker] Step 1 complete"],
   },
   error: null,
@@ -65,7 +65,7 @@ const START_RESPONSE = {
   data: {
     accepted: true,
     pid: 4242,
-    log_path: "/tmp/experiments/eval_spec.example-dashboard/dashboard.log",
+    log_path: "/tmp/logs/evaluation/eval_spec.example-dashboard.log",
     mode: "start",
   },
   error: null,
@@ -92,6 +92,7 @@ const PREVIEW_RESPONSE = {
         timeout: 60,
         temperature: 0,
         max_steps: 20,
+        schema: "hidden-strategy-schema",
       },
       orchestration: {
         max_workers: 2,
@@ -99,6 +100,15 @@ const PREVIEW_RESPONSE = {
         simulator_start_retries: 1,
         evaluation_retries: 1,
         allow_partial_start: true,
+      },
+      api: {
+        base: "https://openrouter.ai/api/v1",
+        key_source: "env:OPENROUTER_API_KEY",
+      },
+      judge: {
+        model: "gpt-5-mini",
+        api_base: "https://api.openai.com/v1",
+        api_key_source: "env:OPENAI_API_KEY",
       },
       models: [
         {
@@ -108,6 +118,7 @@ const PREVIEW_RESPONSE = {
           judge_model: "gpt-5-mini",
           judge_api_base: "https://api.openai.com/v1",
           judge_api_key_source: "env:OPENAI_API_KEY",
+          schema: "hidden-model-schema",
         },
       ],
     },
@@ -124,25 +135,25 @@ describe("EvaluationContainer", () => {
       "fetch",
       vi.fn(async (input: string | URL) => {
         const url = String(input);
-        if (url.includes("/api/local/runtime/config")) {
+        if (url.includes("/api/dashboard/local/runtime/config")) {
           return new Response(JSON.stringify(RUNTIME_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
-        if (url.includes("/api/local/evaluations/start")) {
+        if (url.includes("/api/dashboard/local/evaluations/start")) {
           return new Response(JSON.stringify(START_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
-        if (url.includes("/api/local/evaluations/runs/eval_spec.example-dashboard/logs")) {
+        if (url.includes("/api/dashboard/local/evaluations/runs/eval_spec.example-dashboard/logs")) {
           return new Response(
             JSON.stringify({
               ...LOGS_RESPONSE,
               data: {
                 run_id: "eval_spec.example-dashboard",
-                log_path: "/tmp/experiments/eval_spec.example-dashboard/dashboard.log",
+                log_path: "/tmp/logs/evaluation/eval_spec.example-dashboard.log",
                 lines: ["[Main] Booting dashboard worker"],
               },
             }),
@@ -152,19 +163,19 @@ describe("EvaluationContainer", () => {
             },
           );
         }
-        if (url.includes("/api/local/evaluations/runs/example_qt1_seed_1_3_5/logs")) {
+        if (url.includes("/api/dashboard/local/evaluations/runs/example_qt1_seed_1_3_5/logs")) {
           return new Response(JSON.stringify(LOGS_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
-        if (url.includes("/api/local/evaluations/runs")) {
+        if (url.includes("/api/dashboard/local/evaluations/runs")) {
           return new Response(JSON.stringify(RUNS_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
-        if (url.includes("/api/local/evaluations/spec-preview")) {
+        if (url.includes("/api/dashboard/local/evaluations/spec-preview")) {
           return new Response(JSON.stringify(PREVIEW_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
@@ -191,7 +202,7 @@ describe("EvaluationContainer", () => {
       "fetch",
       vi.fn((input: string | URL) => {
         const url = String(input);
-        if (url.includes("/api/local/runtime/config")) {
+        if (url.includes("/api/dashboard/local/runtime/config")) {
           return Promise.resolve(
             new Response(JSON.stringify(RUNTIME_RESPONSE), {
               status: 200,
@@ -199,7 +210,7 @@ describe("EvaluationContainer", () => {
             }),
           );
         }
-        if (url.includes("/api/local/evaluations/spec-preview")) {
+        if (url.includes("/api/dashboard/local/evaluations/spec-preview")) {
           return Promise.resolve(
             new Response(JSON.stringify(PREVIEW_RESPONSE), {
               status: 200,
@@ -207,7 +218,7 @@ describe("EvaluationContainer", () => {
             }),
           );
         }
-        if (url.includes("/api/local/evaluations/runs")) {
+        if (url.includes("/api/dashboard/local/evaluations/runs")) {
           return new Promise(() => {}) as Promise<Response>;
         }
         return Promise.resolve(
@@ -237,13 +248,24 @@ describe("EvaluationContainer", () => {
     expect(await screen.findByText("Spec preview")).toBeInTheDocument();
     expect((await screen.findAllByText("example_qt1_seed_1_3_5")).length).toBeGreaterThan(0);
     expect(await screen.findByText(/openai\/gpt-4\.1/i)).toBeInTheDocument();
-    expect((await screen.findAllByText(/simuhome-eval-spec-v1/i)).length).toBeGreaterThan(0);
+    expect(await screen.findByText("timeout")).toBeInTheDocument();
+    expect(await screen.findByText("Judge")).toBeInTheDocument();
+    expect(await screen.findByText("Models")).toBeInTheDocument();
+    expect(await screen.findByText("Model 1")).toBeInTheDocument();
+    expect(screen.queryByText("key_source")).not.toBeInTheDocument();
+    expect(screen.queryByText("api_key_source")).not.toBeInTheDocument();
+    expect(screen.queryByText("[0].model")).not.toBeInTheDocument();
+    expect(screen.queryByText("[0].judge_api_key_source")).not.toBeInTheDocument();
+    expect(screen.queryByText("judge_api_key_source")).not.toBeInTheDocument();
+    expect(screen.queryByText("env:OPENAI_API_KEY")).not.toBeInTheDocument();
+    expect(screen.queryByText("hidden-strategy-schema")).not.toBeInTheDocument();
+    expect(screen.queryByText("hidden-model-schema")).not.toBeInTheDocument();
   });
 
   it("shows a live dashboard log tail for the selected run", async () => {
     renderPage();
 
-    expect(await screen.findByText("/tmp/experiments/example_qt1_seed_1_3_5/dashboard.log")).toBeInTheDocument();
+    expect(await screen.findByText("/tmp/logs/evaluation/example_qt1_seed_1_3_5.log")).toBeInTheDocument();
     const tailBlock = await screen.findByText((content, node) => {
       return node?.textContent === "[Main] Evaluation started\n[Worker] Step 1 complete";
     });
@@ -267,7 +289,7 @@ describe("EvaluationContainer", () => {
     expect(await screen.findByText("Started evaluation process 4242.")).toBeInTheDocument();
     expect((await screen.findAllByText("eval_spec.example-dashboard")).length).toBeGreaterThan(0);
     expect(
-      await screen.findByText("/tmp/experiments/eval_spec.example-dashboard/dashboard.log"),
+      await screen.findByText("/tmp/logs/evaluation/eval_spec.example-dashboard.log"),
     ).toBeInTheDocument();
     expect(await screen.findByText("[Main] Booting dashboard worker")).toBeInTheDocument();
   });

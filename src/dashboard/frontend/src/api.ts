@@ -10,7 +10,14 @@ export type ApiRouteEntry = {
   method: string;
   path: string;
   name: string;
-  summary: string | null;
+  summary: string;
+  description: string;
+  args: Array<{
+    name: string;
+    type: string;
+    description: string;
+    required: boolean;
+  }>;
 };
 
 export type WikiImplementationInfo = {
@@ -37,6 +44,12 @@ export type WikiAggregatorSummary = {
   baseline_value: number;
   current_value: number;
   interested_device_types: string[];
+};
+
+export type WikiAggregatorFormulaSetting = {
+  name: string;
+  value: string | number;
+  description: string;
 };
 
 export type WikiApiCatalog = {
@@ -94,6 +107,7 @@ export type WikiAggregatorDetail = {
   mechanism: string;
   formula_readable: string;
   formula_code: string;
+  formula_settings?: WikiAggregatorFormulaSetting[];
   sensor_sync: string;
   unit: string;
   baseline_value: number;

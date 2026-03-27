@@ -6,6 +6,7 @@ import {
   createDashboardApiProxyMiddleware,
   DASHBOARD_CONTROL_PATHS,
   createDashboardControlMiddleware,
+  isDashboardApiProxyPath,
   runDashboardControlCommand,
 } from "../../dev-control";
 
@@ -103,7 +104,7 @@ describe("dev-control", () => {
     middleware(
       {
         method: "GET",
-        url: "/api/wiki/clusters/OnOff/raw",
+        url: "/api/dashboard/wiki/clusters/OnOff/raw",
         headers: { accept: "text/markdown" },
       } as never,
       response as never,
@@ -115,7 +116,7 @@ describe("dev-control", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/wiki/clusters/OnOff/raw",
+      "http://127.0.0.1:8000/api/dashboard/wiki/clusters/OnOff/raw",
       expect.objectContaining({
         method: "GET",
       }),
@@ -136,5 +137,12 @@ describe("dev-control", () => {
     );
 
     expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("does not treat app routes like /api-explorer as proxied api paths", () => {
+    expect(isDashboardApiProxyPath("/api")).toBe(true);
+    expect(isDashboardApiProxyPath("/api/dashboard/wiki/apis")).toBe(true);
+    expect(isDashboardApiProxyPath("/api-explorer")).toBe(false);
+    expect(isDashboardApiProxyPath("/api-explorer/details")).toBe(false);
   });
 });

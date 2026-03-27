@@ -2,6 +2,7 @@ import { Alert, Box, Stack, Typography } from "@mui/material";
 
 import { PageIntro } from "@/ui";
 import type { ApiExplorerPresenterProps } from "@/types/pages/apiExplorer";
+import { DashboardRouteReferencePanel } from "@/components/ApiExplorer/DashboardRouteReferencePanel";
 import { ExecutionHistoryPanel } from "@/components/ApiExplorer/ExecutionHistoryPanel";
 import { RequestComposerPanel } from "@/components/ApiExplorer/RequestComposerPanel";
 import { RouteCatalogPanel } from "@/components/ApiExplorer/RouteCatalogPanel";
@@ -9,6 +10,8 @@ import { RouteCatalogPanel } from "@/components/ApiExplorer/RouteCatalogPanel";
 export function ApiExplorerPresenter({
   catalog,
   catalogError,
+  dashboardRoutes,
+  manualRoutes,
   selectedKey,
   selectedRoute,
   requestPath,
@@ -20,8 +23,6 @@ export function ApiExplorerPresenter({
   onRequestBodyChange,
   onExecuteSelectedRoute,
 }: ApiExplorerPresenterProps) {
-  const routes = catalog?.routes ?? [];
-
   return (
     <Stack spacing={2}>
       <PageIntro
@@ -40,12 +41,20 @@ export function ApiExplorerPresenter({
         }}
       >
         <Stack spacing={2}>
-          <RouteCatalogPanel selectedKey={selectedKey} routes={routes} onSelectRoute={onSelectRoute} />
+          <RouteCatalogPanel
+            selectedKey={selectedKey}
+            routes={manualRoutes}
+            onSelectRoute={onSelectRoute}
+          />
         </Stack>
 
         <Stack spacing={2}>
           <RequestComposerPanel
             selectedRouteMethod={selectedRoute?.method ?? null}
+            selectedRouteDescription={
+              selectedRoute?.description ?? "Description is not provided."
+            }
+            selectedRouteArgs={selectedRoute?.args ?? []}
             requestPath={requestPath}
             requestBody={requestBody}
             responseBlock={responseBlock}
@@ -55,6 +64,7 @@ export function ApiExplorerPresenter({
           />
 
           <ExecutionHistoryPanel history={history} />
+          <DashboardRouteReferencePanel routes={dashboardRoutes} />
         </Stack>
       </Box>
     </Stack>

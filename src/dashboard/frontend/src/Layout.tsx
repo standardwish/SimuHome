@@ -39,16 +39,16 @@ const NAV_ITEMS = [
     icon: <ScienceRoundedIcon fontSize="small" />,
   },
   {
-    label: "Evaluation",
-    path: "/evaluation",
-    caption: "Runs and logs",
-    icon: <RadarRoundedIcon fontSize="small" />,
-  },
-  {
     label: "Generation",
     path: "/generation",
     caption: "Episode generation runs",
     icon: <AutoFixHighRoundedIcon fontSize="small" />,
+  },
+  {
+    label: "Evaluation",
+    path: "/evaluation",
+    caption: "Runs and logs",
+    icon: <RadarRoundedIcon fontSize="small" />,
   },
   {
     label: "API Explorer",
@@ -72,7 +72,8 @@ function selectedTab(pathname: string) {
 export function Layout() {
   const location = useLocation();
   const theme = useTheme();
-  const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
+  const useScrollableTabs = useMediaQuery(theme.breakpoints.down("md"));
+  const showMobileNavToggle = useMediaQuery(theme.breakpoints.down("sm"));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [serverActionPending, setServerActionPending] = useState(false);
   const pollingIntervalMs = useDashboardRuntimeStore((state) => state.pollingIntervalMs);
@@ -150,8 +151,11 @@ export function Layout() {
             alignItems: "center",
           }}
         >
-          {isCompact && (
-            <IconButton onClick={() => setDrawerOpen(true)}>
+          {showMobileNavToggle && (
+            <IconButton
+              aria-label="Open navigation menu"
+              onClick={() => setDrawerOpen(true)}
+            >
               <MenuRoundedIcon />
             </IconButton>
           )}
@@ -219,9 +223,6 @@ export function Layout() {
                 }
               />
             </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Health checks and dashboard polling run every 5 seconds.
-            </Typography>
           </Box>
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ pl: 1 }}>
             <Box
@@ -245,7 +246,7 @@ export function Layout() {
         </Toolbar>
         <Tabs
           value={selectedTab(location.pathname)}
-          variant={isCompact ? "scrollable" : "standard"}
+          variant={useScrollableTabs ? "scrollable" : "standard"}
           sx={{ px: { xs: 1, md: 3 } }}
         >
           {NAV_ITEMS.map((item) => (

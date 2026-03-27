@@ -37,7 +37,23 @@ export type EvaluationSpecPreviewPanelProps = {
   specPreviewEpisodeDir: string;
   specPreviewSelection: string;
   specPreviewStrategy: unknown;
-  specPreviewModels: unknown;
+  specPreviewApi: {
+    base: string | null;
+    key_source: string | null;
+  };
+  specPreviewJudge: {
+    model: string | null;
+    api_base: string | null;
+    api_key_source: string | null;
+  };
+  specPreviewModels: Array<{
+    model: string | null;
+    api_base: string | null;
+    api_key_source: string | null;
+    judge_model: string | null;
+    judge_api_base: string | null;
+    judge_api_key_source: string | null;
+  }>;
   specPreviewYaml: string;
   specPreviewError: string | null;
 };

@@ -5,6 +5,7 @@ import react from "@vitejs/plugin-react";
 import {
   createDashboardApiProxyMiddleware,
   createDashboardControlMiddleware,
+  isDashboardApiProxyPath,
 } from "./dev-control";
 
 export default defineConfig({
@@ -34,10 +35,17 @@ export default defineConfig({
     port: 4173,
     host: "127.0.0.1",
     proxy: {
-      "/api": {
+      "^/api(?:/|$)": {
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
+        rewrite(pathname) {
+          return isDashboardApiProxyPath(pathname) ? pathname : pathname;
+        },
       },
     },
+  },
+  preview: {
+    port: 4176,
+    host: "0.0.0.0",
   },
 });

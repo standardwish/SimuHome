@@ -8,7 +8,7 @@ export function EvaluationRunDetailContainer() {
   const { runId } = useParams();
   const apiHealthy = useDashboardRuntimeStore((state) => state.apiHealthy);
   const detail = useDashboardQuery<EvaluationRunDetail>(
-    `/api/local/evaluations/runs/${runId}/detail`,
+    `/api/dashboard/local/evaluations/runs/${runId}/detail`,
     {
       enabled: apiHealthy && Boolean(runId),
     },

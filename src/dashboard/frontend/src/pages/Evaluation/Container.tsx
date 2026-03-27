@@ -19,19 +19,26 @@ function runIdFromLogPath(logPath: string): string | null {
   if (segments.length < 2) {
     return null;
   }
+  const fileName = segments[segments.length - 1] ?? "";
+  if (fileName.endsWith(".log") && fileName !== "dashboard.log") {
+    return fileName.slice(0, -4) || null;
+  }
   return segments[segments.length - 2] ?? null;
 }
 
 export function EvaluationContainer() {
   const apiHealthy = useDashboardRuntimeStore((state) => state.apiHealthy);
   const pollingIntervalMs = useDashboardRuntimeStore((state) => state.pollingIntervalMs);
-  const runtime = useDashboardQuery<RuntimeConfig>("/api/local/runtime/config", {
+  const runtime = useDashboardQuery<RuntimeConfig>("/api/dashboard/local/runtime/config", {
     enabled: apiHealthy,
   });
-  const runs = useDashboardQuery<EvaluationRunsPayload>("/api/local/evaluations/runs", {
+  const runs = useDashboardQuery<EvaluationRunsPayload>(
+    "/api/dashboard/local/evaluations/runs",
+    {
     intervalMs: pollingIntervalMs,
     enabled: apiHealthy,
-  });
+    },
+  );
   const [specPath, setSpecPath] = useState("eval_spec.example.yaml");
   const [resumePath, setResumePath] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -39,11 +46,11 @@ export function EvaluationContainer() {
   const deferredSpecPath = useDeferredValue(specPath.trim());
 
   const specPreview = useDashboardQuery<EvaluationSpecPreview>(
-    `/api/local/evaluations/spec-preview?path=${encodeURIComponent(deferredSpecPath)}`,
+    `/api/dashboard/local/evaluations/spec-preview?path=${encodeURIComponent(deferredSpecPath)}`,
     { enabled: apiHealthy && Boolean(deferredSpecPath) },
   );
   const selectedRunLogs = useDashboardQuery<EvaluationRunLogs>(
-    `/api/local/evaluations/runs/${selectedRunId}/logs`,
+    `/api/dashboard/local/evaluations/runs/${selectedRunId}/logs`,
     {
       intervalMs: pollingIntervalMs,
       enabled: apiHealthy && Boolean(selectedRunId),
@@ -64,7 +71,7 @@ export function EvaluationContainer() {
   async function handleStart() {
     try {
       const response = await requestApi<EvaluationLaunchResponse>(
-        "/api/local/evaluations/start",
+        "/api/dashboard/local/evaluations/start",
         { method: "POST", body: JSON.stringify({ spec_path: specPath }) },
       );
       const launchedRunId = runIdFromLogPath(response.data.log_path);
@@ -81,7 +88,7 @@ export function EvaluationContainer() {
   async function handleResume() {
     try {
       const response = await requestApi<EvaluationLaunchResponse>(
-        "/api/local/evaluations/resume",
+        "/api/dashboard/local/evaluations/resume",
         { method: "POST", body: JSON.stringify({ resume_path: resumePath }) },
       );
       const launchedRunId = runIdFromLogPath(response.data.log_path);

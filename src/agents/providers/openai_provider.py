@@ -109,6 +109,7 @@ class OpenAIChatProvider(LLMProvider):
         self.temperature = temperature
         self.seed = seed
         self.max_retries = max_retries
+        self._temperature_warning_logged = False
 
         resolved_base = api_base.strip()
         resolved_key = api_key.strip()
@@ -131,6 +132,12 @@ class OpenAIChatProvider(LLMProvider):
             timeout=timeout,
         )
 
+    def _warn_temperature_once(self, message: str, *args: object) -> None:
+        if self._temperature_warning_logged:
+            return
+        logger.warning(message, *args)
+        self._temperature_warning_logged = True
+
     def generate(
         self,
         messages: Sequence[ChatMessage],
@@ -145,7 +152,7 @@ class OpenAIChatProvider(LLMProvider):
         if supports_temperature_parameter(self.model):
             kwargs["temperature"] = self.temperature
         else:
-            logger.warning(
+            self._warn_temperature_once(
                 "Model %s does not support the temperature parameter; omitting it from the request.",
                 self.model,
             )
@@ -189,7 +196,7 @@ class OpenAIChatProvider(LLMProvider):
                         and "temperature" in kwargs
                         and _is_unsupported_temperature_error(e)
                     ):
-                        logger.warning(
+                        self._warn_temperature_once(
                             "Model %s rejected the temperature parameter. Retrying request without temperature.",
                             self.model,
                         )

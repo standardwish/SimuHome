@@ -1219,14 +1219,14 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
 @click.option("--spec", default=None, help="Path to generation spec YAML")
 @click.option("--resume", default=None, help="Path to generation run directory")
 def cli(spec: str | None, resume: str | None) -> int:
-    configure_logging()
+    configure_logging(use_tqdm=True)
     if (spec is None) == (resume is None):
         raise click.UsageError("Exactly one of --spec or --resume must be provided")
     return _run_cli(spec=spec, resume=resume)
 
 
 def main(argv: list[str] | None = None) -> int:
-    configure_logging()
+    configure_logging(use_tqdm=True)
     try:
         result = cli.main(args=argv, prog_name="episode-generator", standalone_mode=False)
         return 0 if result is None else int(result)

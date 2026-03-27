@@ -10,6 +10,8 @@ export type HistoryEntry = {
 export type ApiExplorerPresenterProps = {
   catalog: WikiApiCatalog | null;
   catalogError: string | null;
+  dashboardRoutes: ApiRouteEntry[];
+  manualRoutes: ApiRouteEntry[];
   selectedKey: string;
   selectedRoute: ApiRouteEntry | null;
   requestPath: string;

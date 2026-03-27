@@ -70,7 +70,7 @@ describe("GenerationRunDetailPage", () => {
       "fetch",
       vi.fn(async (input: string | URL) => {
         const url = String(input);
-        if (url.includes("/api/local/generations/runs/demo-generation/detail")) {
+        if (url.includes("/api/dashboard/local/generations/runs/demo-generation/detail")) {
           return new Response(JSON.stringify(DETAIL_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },

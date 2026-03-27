@@ -8,7 +8,7 @@ export function GenerationRunDetailContainer() {
   const { runId } = useParams();
   const apiHealthy = useDashboardRuntimeStore((state) => state.apiHealthy);
   const detail = useDashboardQuery<GenerationRunDetail>(
-    `/api/local/generations/runs/${runId}/detail`,
+    `/api/dashboard/local/generations/runs/${runId}/detail`,
     {
       enabled: apiHealthy && Boolean(runId),
     },

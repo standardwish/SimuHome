@@ -97,7 +97,7 @@ describe("EvaluationRunDetailPage", () => {
       "fetch",
       vi.fn(async (input: string | URL) => {
         const url = String(input);
-        if (url.includes("/api/local/evaluations/runs/example_qt1_seed_1_3_5/detail")) {
+        if (url.includes("/api/dashboard/local/evaluations/runs/example_qt1_seed_1_3_5/detail")) {
           return new Response(JSON.stringify(DETAIL_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },

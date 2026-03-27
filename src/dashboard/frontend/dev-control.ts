@@ -25,6 +25,10 @@ const REPO_ROOT = resolve(__dirname, "../../..");
 const API_PORT = "8000";
 const API_ORIGIN = `http://127.0.0.1:${API_PORT}`;
 
+export function isDashboardApiProxyPath(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
+
 function commandArgs(action: DashboardControlAction): string[] {
   return [
     "run",
@@ -149,7 +153,7 @@ export function createDashboardApiProxyMiddleware(fetchImpl: FetchImpl = fetch) 
     next: () => void,
   ) => {
     const pathname = req.url?.split("?")[0] ?? "";
-    if (!pathname.startsWith("/api")) {
+    if (!isDashboardApiProxyPath(pathname)) {
       next();
       return;
     }

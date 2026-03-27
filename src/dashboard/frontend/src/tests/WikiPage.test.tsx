@@ -87,6 +87,51 @@ const AGGREGATOR_DETAIL_RESPONSE = {
       "current_value(t+1) = current_value(t) + device_effects + restoration toward baseline",
     formula_code:
       "restoration_delta = baseline_value - current_value\ncurrent_value += total_effect\ncurrent_value += restoration_delta * restoration_rate_per_second * tick_interval",
+    formula_settings: [
+      {
+        name: "tick_interval",
+        value: 0.1,
+        description: "Simulation tick duration used by the aggregator update loop.",
+      },
+      {
+        name: "delta",
+        value: 0,
+        description: "Current restoration gap computed as baseline_value - current_value.",
+      },
+      {
+        name: "restoration_rate_per_second",
+        value: 0.0002,
+        description: "Passive return speed toward the baseline temperature.",
+      },
+    ],
+    sensor_sync:
+      "Thermostat and temperature-reporting sensor clusters are synchronized from the aggregated environment state.",
+    implementation: {
+      class_name: "TemperatureAggregator",
+      module: "src.simulator.domain.aggregators.temperature",
+      source_file: "/tmp/temperature.py",
+    },
+    source: "aggregator_registry",
+  },
+  error: null,
+};
+
+const LEGACY_AGGREGATOR_DETAIL_RESPONSE = {
+  status: { code: 200, message: "OK" },
+  data: {
+    aggregator_type: "temperature",
+    environment_signal: "Temperature",
+    unit: "°C",
+    baseline_value: 2500,
+    current_value: 2500,
+    interested_device_types: ["air_conditioner", "heat_pump", "fan"],
+    summary: "Tracks room temperature from HVAC and air movement devices.",
+    mechanism:
+      "Uses heat exchange from active HVAC devices and passive restoration toward the baseline.",
+    formula_readable:
+      "current_value(t+1) = current_value(t) + device_effects + restoration toward baseline",
+    formula_code:
+      "restoration_delta = baseline_value - current_value\ncurrent_value += total_effect\ncurrent_value += restoration_delta * restoration_rate_per_second * tick_interval",
     sensor_sync:
       "Thermostat and temperature-reporting sensor clusters are synchronized from the aggregated environment state.",
     implementation: {
@@ -184,31 +229,31 @@ describe("WikiPage", () => {
       "fetch",
       vi.fn(async (input: string | URL) => {
         const url = String(input);
-        if (url.includes("/api/wiki/aggregators/temperature")) {
+        if (url.includes("/api/dashboard/wiki/aggregators/temperature")) {
           return new Response(JSON.stringify(AGGREGATOR_DETAIL_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
-        if (url.includes("/api/wiki/aggregators")) {
+        if (url.includes("/api/dashboard/wiki/aggregators")) {
           return new Response(JSON.stringify(AGGREGATORS_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
-        if (url.includes("/api/wiki/device-types/on_off_light")) {
+        if (url.includes("/api/dashboard/wiki/device-types/on_off_light")) {
           return new Response(JSON.stringify(DEVICE_DETAIL_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
-        if (url.includes("/api/wiki/device-types")) {
+        if (url.includes("/api/dashboard/wiki/device-types")) {
           return new Response(JSON.stringify(DEVICE_TYPES_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
-        if (url.includes("/api/wiki/clusters/OnOff")) {
+        if (url.includes("/api/dashboard/wiki/clusters/OnOff")) {
           return new Response(JSON.stringify(CLUSTER_DOC_RESPONSE), {
             status: 200,
             headers: { "Content-Type": "application/json" },
@@ -288,7 +333,7 @@ describe("WikiPage", () => {
 
     expect(docFileLink).toHaveAttribute(
       "href",
-      expect.stringContaining("/api/wiki/clusters/OnOff/raw"),
+      expect.stringContaining("/api/dashboard/wiki/clusters/OnOff/raw"),
     );
     expect(docFileLink).not.toHaveAttribute(
       "href",
@@ -312,7 +357,40 @@ describe("WikiPage", () => {
     expect(await screen.findByText(/heat exchange/i)).toBeInTheDocument();
     expect(await screen.findByText(/current_value\(t\+1\)/i)).toBeInTheDocument();
     expect(await screen.findByText(/restoration_delta = baseline_value - current_value/i)).toBeInTheDocument();
+    expect(await screen.findByText("restoration_rate_per_second")).toBeInTheDocument();
+    expect(await screen.findByText("0.0002")).toBeInTheDocument();
+    expect(await screen.findByText("delta")).toBeInTheDocument();
     expect(await screen.findByText(/air_conditioner/i)).toBeInTheDocument();
     expect(await screen.findByText(/TemperatureAggregator/i)).toBeInTheDocument();
+  });
+
+  it("does not crash when formula settings are missing from aggregator detail", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("/api/dashboard/wiki/aggregators/temperature")) {
+          return new Response(JSON.stringify(LEGACY_AGGREGATOR_DETAIL_RESPONSE), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (url.includes("/api/dashboard/wiki/aggregators")) {
+          return new Response(JSON.stringify(AGGREGATORS_RESPONSE), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify(DEVICE_TYPES_RESPONSE), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    await renderWiki("/wiki/aggregators/temperature");
+
+    expect(await screen.findByRole("heading", { name: "temperature", level: 3 })).toBeInTheDocument();
+    expect(await screen.findByText("No formula settings available.")).toBeInTheDocument();
   });
 });

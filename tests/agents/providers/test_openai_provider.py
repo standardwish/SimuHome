@@ -100,3 +100,33 @@ def test_generate_retries_without_temperature_after_unsupported_value_error(
     assert calls[0]["temperature"] == 0.0
     assert "temperature" not in calls[1]
     assert "Retrying request without temperature." in caplog.text
+
+
+def test_generate_logs_known_temperature_unsupported_warning_only_once(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    class FakeCreate:
+        def __call__(self, **kwargs):
+            return _response_with_content("A")
+
+    monkeypatch.setattr("src.agents.providers.openai_provider.OpenAI", lambda **_: None)
+
+    provider = OpenAIChatProvider(
+        model="gpt-5-mini",
+        temperature=0.0,
+        api_key="test-key",
+        api_base="https://api.openai.com/v1",
+    )
+    provider._client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=FakeCreate()))
+    )
+
+    provider.generate([ChatMessage(role="user", content="judge this")])
+    provider.generate([ChatMessage(role="user", content="judge this again")])
+
+    assert (
+        caplog.text.count(
+            "gpt-5-mini does not support the temperature parameter"
+        )
+        == 1
+    )

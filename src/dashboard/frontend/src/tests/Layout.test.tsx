@@ -23,11 +23,42 @@ function renderLayout(initialEntry = "/simulator", simulatorElement: ReactNode =
   );
 }
 
+function installMatchMedia(width: number) {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    writable: true,
+    value: width,
+  });
+
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => {
+      const maxMatch = /max-width:\s*([0-9.]+)px/.exec(query);
+      const minMatch = /min-width:\s*([0-9.]+)px/.exec(query);
+      const maxOk = maxMatch ? width <= Number(maxMatch[1]) : true;
+      const minOk = minMatch ? width >= Number(minMatch[1]) : true;
+      const matches = maxOk && minOk;
+
+      return {
+        matches,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      };
+    }),
+  );
+}
+
 describe("Layout", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
     resetDashboardRuntimeStore();
+    installMatchMedia(1440);
   });
 
   it("shows a stop action when the API server is healthy", async () => {
@@ -59,9 +90,6 @@ describe("Layout", () => {
     expect(await screen.findByText("API healthy")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stop API" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Start API" })).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Health checks and dashboard polling run every 5 seconds."),
-    ).toBeInTheDocument();
   });
 
   it("shows a start action when the API server is offline", async () => {
@@ -236,7 +264,7 @@ describe("Layout", () => {
     );
   });
 
-  it("shows the fixed 5-second polling note instead of a configurable control", async () => {
+  it("omits the old configurable polling control", async () => {
     const fetchMock = vi.fn(async (input: string | URL) => {
       const url = String(input);
       if (url.includes("/api/__health__")) {
@@ -264,11 +292,52 @@ describe("Layout", () => {
 
     expect(await screen.findByText("API offline")).toBeInTheDocument();
     expect(
-      screen.getByText("Health checks and dashboard polling run every 5 seconds."),
-    ).toBeInTheDocument();
-    expect(
       screen.queryByRole("spinbutton", { name: /polling interval/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps the hamburger toggle hidden on desktop widths", async () => {
+    installMatchMedia(1024);
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          status: { code: 200, message: "OK" },
+          data: {},
+          error: null,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderLayout();
+
+    expect(await screen.findByText("API healthy")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open navigation menu" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the hamburger toggle on mobile widths", async () => {
+    installMatchMedia(480);
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          status: { code: 200, message: "OK" },
+          data: {},
+          error: null,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderLayout();
+
+    expect(await screen.findByText("API healthy")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open navigation menu" }),
+    ).toBeInTheDocument();
   });
 
   it("shows the Generation navigation tab", async () => {

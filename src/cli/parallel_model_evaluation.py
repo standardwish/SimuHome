@@ -1515,14 +1515,14 @@ def _run_cli(*, spec: str | None, resume: str | None) -> int:
 @click.option("--spec", default=None, help="Path to evaluation spec file")
 @click.option("--resume", default=None, help="Path to existing run directory")
 def cli(spec: str | None, resume: str | None) -> int:
-    configure_logging()
+    configure_logging(use_tqdm=True)
     if (spec is None) == (resume is None):
         raise click.UsageError("Exactly one of --spec or --resume must be provided")
     return _run_cli(spec=spec, resume=resume)
 
 
 def main(argv: list[str] | None = None) -> int:
-    configure_logging()
+    configure_logging(use_tqdm=True)
     result = cli.main(
         args=argv,
         prog_name="parallel-model-evaluation",
@@ -1536,6 +1536,6 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as exc:
-        configure_logging()
+        configure_logging(use_tqdm=True)
         logger.error("Error: %s", exc)
         sys.exit(1)

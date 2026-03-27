@@ -121,7 +121,9 @@ export function WikiDeviceOverviewPanel({
                   value: selectedCluster.doc_path ? (
                     <Typography
                       component="a"
-                      href={apiUrl(`/api/wiki/clusters/${selectedCluster.cluster_id}/raw`)}
+                      href={apiUrl(
+                        `/api/dashboard/wiki/clusters/${selectedCluster.cluster_id}/raw`,
+                      )}
                       target="_blank"
                       rel="noreferrer"
                       sx={{
