@@ -26,6 +26,8 @@ from .backend.runtime import (
 )
 from .backend.wiki import (
     build_api_catalog,
+    get_aggregator_payload,
+    get_aggregators_payload,
     get_cluster_doc_payload,
     get_device_type_payload,
     get_device_types_payload,
@@ -73,6 +75,20 @@ def get_wiki_device_types():
 def get_wiki_device_type(device_type: str):
     try:
         payload = get_device_type_payload(device_type)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return ResponseBuilder.from_result(Result.ok(payload))
+
+
+@router.get("/wiki/aggregators")
+def get_wiki_aggregators():
+    return ResponseBuilder.from_result(Result.ok(get_aggregators_payload()))
+
+
+@router.get("/wiki/aggregators/{aggregator_type}")
+def get_wiki_aggregator_detail(aggregator_type: str):
+    try:
+        payload = get_aggregator_payload(aggregator_type)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return ResponseBuilder.from_result(Result.ok(payload))

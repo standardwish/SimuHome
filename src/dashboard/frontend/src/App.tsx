@@ -17,6 +17,8 @@ export function App() {
         <Route path="/evaluation/:runId" element={<EvaluationRunDetailContainer />} />
         <Route path="/api-explorer" element={<ApiExplorerContainer />} />
         <Route path="/wiki" element={<WikiContainer />} />
+        <Route path="/wiki/aggregators" element={<WikiContainer />} />
+        <Route path="/wiki/aggregators/:aggregatorType" element={<WikiContainer />} />
         <Route path="/wiki/:deviceType" element={<WikiContainer />} />
       </Route>
     </Routes>

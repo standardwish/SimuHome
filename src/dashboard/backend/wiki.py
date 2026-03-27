@@ -15,11 +15,62 @@ from src.simulator.application.device_factory import (
     get_supported_device_types,
     is_valid_device_type,
 )
+from src.simulator.domain.aggregators.registry import AGGREGATOR_REGISTRY
 from src.simulator.domain.clusters.base import Cluster
 from src.simulator.domain.devices.base import Device
 
 
 DOCS_ROOT = Path(__file__).resolve().parents[3] / "docs" / "clusters"
+AGGREGATOR_WIKI_METADATA: dict[str, dict[str, str]] = {
+    "temperature": {
+        "environment_signal": "Temperature",
+        "summary": "Tracks room temperature from HVAC and air movement devices.",
+        "mechanism": (
+            "Uses heat exchange from active HVAC devices and passive restoration "
+            "toward the baseline temperature."
+        ),
+        "sensor_sync": (
+            "Thermostat and temperature-reporting sensor clusters are synchronized "
+            "from the aggregated environment temperature."
+        ),
+    },
+    "pm10": {
+        "environment_signal": "PM10",
+        "summary": "Tracks airborne particulate concentration and air purifier effects.",
+        "mechanism": (
+            "Applies continuous purification from active purifiers and gradual "
+            "restoration toward the baseline pollution level."
+        ),
+        "sensor_sync": (
+            "Air quality and particulate-reporting clusters are synchronized from "
+            "the aggregated PM10 concentration."
+        ),
+    },
+    "illuminance": {
+        "environment_signal": "Illuminance",
+        "summary": "Tracks perceived room brightness from lighting devices.",
+        "mechanism": (
+            "Combines a baseline ambient illuminance level with additive light "
+            "contributions from active fixtures."
+        ),
+        "sensor_sync": (
+            "Brightness-dependent environment readings are interpreted from the "
+            "aggregated illuminance state."
+        ),
+    },
+    "humidity": {
+        "environment_signal": "Humidity",
+        "summary": "Tracks room humidity from humidifiers and dehumidifiers.",
+        "mechanism": (
+            "Applies continuous humidifying or dehumidifying effects and gradual "
+            "restoration toward the baseline humidity."
+        ),
+        "sensor_sync": (
+            "Relative humidity measurement clusters are synchronized from the "
+            "aggregated humidity state."
+        ),
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -65,6 +116,24 @@ def get_device_type_payload(device_type: str) -> dict[str, Any]:
         raise ValueError(f"Unsupported device type: {device_type}")
 
     return _build_device_payload(device_type)
+
+
+def get_aggregators_payload() -> dict[str, Any]:
+    aggregator_types = sorted(AGGREGATOR_REGISTRY.keys())
+    return {
+        "aggregator_types": aggregator_types,
+        "aggregators": [
+            _build_aggregator_summary(aggregator_type)
+            for aggregator_type in aggregator_types
+        ],
+        "source": "aggregator_registry",
+    }
+
+
+def get_aggregator_payload(aggregator_type: str) -> dict[str, Any]:
+    if aggregator_type not in AGGREGATOR_REGISTRY:
+        raise ValueError(f"Unsupported aggregator type: {aggregator_type}")
+    return _build_aggregator_payload(aggregator_type)
 
 
 @lru_cache(maxsize=64)
@@ -130,6 +199,42 @@ def get_cluster_doc_payload(cluster_id: str) -> dict[str, Any]:
         "cluster_id": cluster_id,
         "path": str(path),
         "content": path.read_text(encoding="utf-8"),
+    }
+
+
+@lru_cache(maxsize=32)
+def _build_aggregator_payload(aggregator_type: str) -> dict[str, Any]:
+    aggregator_cls, aggregator_config = AGGREGATOR_REGISTRY[aggregator_type]
+    doc_metadata = AGGREGATOR_WIKI_METADATA[aggregator_type]
+    aggregator = aggregator_cls(
+        agg_id=f"{aggregator_type}_wiki",
+        **aggregator_config,
+    )
+    return {
+        "aggregator_type": aggregator_type,
+        "environment_signal": doc_metadata["environment_signal"],
+        "summary": doc_metadata["summary"],
+        "mechanism": doc_metadata["mechanism"],
+        "sensor_sync": doc_metadata["sensor_sync"],
+        "unit": aggregator.unit,
+        "baseline_value": aggregator.baseline_value,
+        "current_value": aggregator.current_value,
+        "interested_device_types": aggregator.interested_device_types,
+        "implementation": _implementation_info(aggregator),
+        "source": "aggregator_registry",
+    }
+
+
+def _build_aggregator_summary(aggregator_type: str) -> dict[str, Any]:
+    payload = _build_aggregator_payload(aggregator_type)
+    return {
+        "aggregator_type": payload["aggregator_type"],
+        "environment_signal": payload["environment_signal"],
+        "summary": payload["summary"],
+        "unit": payload["unit"],
+        "baseline_value": payload["baseline_value"],
+        "current_value": payload["current_value"],
+        "interested_device_types": payload["interested_device_types"],
     }
 
 

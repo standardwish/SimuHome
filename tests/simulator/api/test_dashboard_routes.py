@@ -36,6 +36,29 @@ def test_wiki_device_types_lists_supported_devices() -> None:
     assert "air_conditioner" in data["device_types"]
 
 
+def test_wiki_aggregators_lists_supported_environment_aggregators() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/wiki/aggregators")
+
+    data = _unwrap_ok(response)
+    aggregator_types = {entry["aggregator_type"] for entry in data["aggregators"]}
+    assert aggregator_types == {"temperature", "pm10", "illuminance", "humidity"}
+
+
+def test_wiki_aggregator_detail_exposes_mechanism_and_affected_devices() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/wiki/aggregators/temperature")
+
+    data = _unwrap_ok(response)
+    assert data["aggregator_type"] == "temperature"
+    assert data["environment_signal"] == "Temperature"
+    assert "heat exchange" in data["mechanism"].lower()
+    assert "air_conditioner" in data["interested_device_types"]
+    assert data["unit"] == "°C"
+
+
 def test_wiki_device_detail_exposes_structure_and_cluster_metadata() -> None:
     client = TestClient(create_app())
 

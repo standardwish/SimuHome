@@ -29,6 +29,16 @@ export type WikiDeviceSummary = {
   implementation: WikiImplementationInfo;
 };
 
+export type WikiAggregatorSummary = {
+  aggregator_type: string;
+  environment_signal: string;
+  summary: string;
+  unit: string;
+  baseline_value: number;
+  current_value: number;
+  interested_device_types: string[];
+};
+
 export type WikiApiCatalog = {
   routes: ApiRouteEntry[];
 };
@@ -36,6 +46,12 @@ export type WikiApiCatalog = {
 export type WikiDeviceTypes = {
   device_types: string[];
   devices: WikiDeviceSummary[];
+  source: string;
+};
+
+export type WikiAggregators = {
+  aggregator_types: string[];
+  aggregators: WikiAggregatorSummary[];
   source: string;
 };
 
@@ -69,6 +85,20 @@ export type WikiClusterDoc = {
   cluster_id: string;
   path: string;
   content: string;
+};
+
+export type WikiAggregatorDetail = {
+  aggregator_type: string;
+  environment_signal: string;
+  summary: string;
+  mechanism: string;
+  sensor_sync: string;
+  unit: string;
+  baseline_value: number;
+  current_value: number;
+  interested_device_types: string[];
+  implementation: WikiImplementationInfo;
+  source: string;
 };
 
 export type HomeState = {

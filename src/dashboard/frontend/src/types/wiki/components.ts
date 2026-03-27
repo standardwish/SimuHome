@@ -1,8 +1,20 @@
-import type { WikiCluster, WikiDeviceDetail, WikiDeviceSummary, WikiDeviceTypes } from "@/api";
+import type {
+  WikiAggregatorDetail,
+  WikiAggregatorSummary,
+  WikiCluster,
+  WikiDeviceDetail,
+  WikiDeviceSummary,
+  WikiDeviceTypes,
+} from "@/api";
 
 export type DeviceDirectoryProps = {
   devices: WikiDeviceSummary[];
   activeDeviceType?: string;
+};
+
+export type AggregatorDirectoryProps = {
+  aggregators: WikiAggregatorSummary[];
+  activeAggregatorType?: string;
 };
 
 export type WikiDeviceOverviewPanelProps = {
@@ -20,4 +32,13 @@ export type WikiClusterDocsPanelProps = {
   selectedCluster: WikiCluster | null;
   clusterDocContent: string | null;
   deviceMetadata: WikiDeviceDetail["metadata"] | null;
+};
+
+export type WikiAggregatorOverviewPanelProps = {
+  aggregatorDetail: WikiAggregatorDetail | null;
+  aggregatorSummary: WikiAggregatorSummary | null;
+};
+
+export type WikiAggregatorMechanismPanelProps = {
+  aggregatorDetail: WikiAggregatorDetail | null;
 };

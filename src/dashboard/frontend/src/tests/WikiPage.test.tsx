@@ -42,6 +42,59 @@ const DEVICE_TYPES_RESPONSE = {
   error: null,
 };
 
+const AGGREGATORS_RESPONSE = {
+  status: { code: 200, message: "OK" },
+  data: {
+    aggregator_types: ["temperature", "pm10", "illuminance", "humidity"],
+    aggregators: [
+      {
+        aggregator_type: "temperature",
+        environment_signal: "Temperature",
+        unit: "°C",
+        baseline_value: 2500,
+        current_value: 2500,
+        interested_device_types: ["air_conditioner", "heat_pump", "fan"],
+        summary: "Tracks room temperature from HVAC and air movement devices.",
+      },
+      {
+        aggregator_type: "illuminance",
+        environment_signal: "Illuminance",
+        unit: "lux",
+        baseline_value: 1000,
+        current_value: 1000,
+        interested_device_types: ["on_off_light", "dimmable_light"],
+        summary: "Tracks perceived brightness from lighting devices.",
+      },
+    ],
+    source: "aggregator_registry",
+  },
+  error: null,
+};
+
+const AGGREGATOR_DETAIL_RESPONSE = {
+  status: { code: 200, message: "OK" },
+  data: {
+    aggregator_type: "temperature",
+    environment_signal: "Temperature",
+    unit: "°C",
+    baseline_value: 2500,
+    current_value: 2500,
+    interested_device_types: ["air_conditioner", "heat_pump", "fan"],
+    summary: "Tracks room temperature from HVAC and air movement devices.",
+    mechanism:
+      "Uses heat exchange from active HVAC devices and passive restoration toward the baseline.",
+    sensor_sync:
+      "Thermostat and temperature-reporting sensor clusters are synchronized from the aggregated environment state.",
+    implementation: {
+      class_name: "TemperatureAggregator",
+      module: "src.simulator.domain.aggregators.temperature",
+      source_file: "/tmp/temperature.py",
+    },
+    source: "aggregator_registry",
+  },
+  error: null,
+};
+
 const DEVICE_DETAIL_RESPONSE = {
   status: { code: 200, message: "OK" },
   data: {
@@ -112,6 +165,8 @@ async function renderWiki(initialEntry: string) {
       <Routes>
         <Route path="/wiki" element={<WikiContainer />} />
         <Route path="/wiki/:deviceType" element={<WikiContainer />} />
+        <Route path="/wiki/aggregators" element={<WikiContainer />} />
+        <Route path="/wiki/aggregators/:aggregatorType" element={<WikiContainer />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -125,6 +180,18 @@ describe("WikiPage", () => {
       "fetch",
       vi.fn(async (input: string | URL) => {
         const url = String(input);
+        if (url.includes("/api/wiki/aggregators/temperature")) {
+          return new Response(JSON.stringify(AGGREGATOR_DETAIL_RESPONSE), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (url.includes("/api/wiki/aggregators")) {
+          return new Response(JSON.stringify(AGGREGATORS_RESPONSE), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         if (url.includes("/api/wiki/device-types/on_off_light")) {
           return new Response(JSON.stringify(DEVICE_DETAIL_RESPONSE), {
             status: 200,
@@ -186,7 +253,7 @@ describe("WikiPage", () => {
     expect(
       (await screen.findAllByRole("link", { name: /back to device list/i })).length,
     ).toBeGreaterThan(0);
-    expect(screen.queryByText("Devices")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Devices", level: 3 })).not.toBeInTheDocument();
     expect(await screen.findByText("OnOffCluster")).toBeInTheDocument();
     expect(await screen.findByText(/Commands and attributes\./i)).toBeInTheDocument();
   });
@@ -197,7 +264,7 @@ describe("WikiPage", () => {
     expect(
       (await screen.findAllByRole("link", { name: /back to device list/i })).length,
     ).toBeGreaterThan(0);
-    expect(screen.queryByText("Devices")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Devices", level: 3 })).not.toBeInTheDocument();
     expect(
       await screen.findByRole("heading", { name: "on_off_light", level: 3 }),
     ).toBeInTheDocument();
@@ -223,5 +290,23 @@ describe("WikiPage", () => {
       "href",
       "/data2/pyojunseong/SimuHome/docs/clusters/On_Off_Cluster.md",
     );
+  });
+
+  it("renders the aggregators section as a linked directory", async () => {
+    await renderWiki("/wiki/aggregators");
+
+    expect(await screen.findByRole("heading", { name: "Aggregators", level: 3 })).toBeInTheDocument();
+    const aggregatorLink = await screen.findByRole("link", { name: /temperature/i });
+    expect(aggregatorLink).toHaveAttribute("href", "/wiki/aggregators/temperature");
+    expect(await screen.findByText(/Tracks room temperature/i)).toBeInTheDocument();
+  });
+
+  it("renders an aggregator detail route directly", async () => {
+    await renderWiki("/wiki/aggregators/temperature");
+
+    expect(await screen.findByRole("heading", { name: "temperature", level: 3 })).toBeInTheDocument();
+    expect(await screen.findByText(/heat exchange/i)).toBeInTheDocument();
+    expect(await screen.findByText(/air_conditioner/i)).toBeInTheDocument();
+    expect(await screen.findByText(/TemperatureAggregator/i)).toBeInTheDocument();
   });
 });
